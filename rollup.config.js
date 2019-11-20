@@ -1,9 +1,10 @@
 import resolve from 'rollup-plugin-node-resolve';
+import commonjs from 'rollup-plugin-commonjs';
 import sucrase from 'rollup-plugin-sucrase';
 import pkg from './package.json';
 
 export default {
-    input: 'src/index.js',
+    input: 'src/ViewModel.js',
     output: [{
         file: pkg.main,
         format: 'cjs',
@@ -34,5 +35,6 @@ export default {
             exclude: ['node_modules/**'],
             transforms: ['jsx']
         }),
+        commonjs(),
     ],
 }

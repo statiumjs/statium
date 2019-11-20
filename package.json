@@ -20,8 +20,10 @@
     "react": "^16.9.0"
   },
   "devDependencies": {
+    "@babel/plugin-transform-runtime": "^7.6.2",
     "@babel/preset-env": "^7.7.1",
     "@babel/preset-react": "^7.7.0",
+    "@babel/runtime": "^7.7.2",
     "babel-eslint": "^10.0.3",
     "enzyme": "^3.10.0",
     "enzyme-adapter-react-16": "^1.15.1",
@@ -35,6 +37,7 @@
     "jest": "^24.9.0",
     "react-dom": "^16.11.0",
     "rollup": "^1.26.3",
+    "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-sucrase": "^2.1.0",
     "sucrase": "^3.10.1"
