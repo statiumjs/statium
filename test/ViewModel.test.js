@@ -1,14 +1,25 @@
 import React from 'react';
 import { mount } from 'enzyme';
+import sleep from './sleep';
 
-import ViewModel, { Bound } from '../src/ViewModel';
+import ViewModel, { Bind } from '../src';
 
 const valueTester = want => 
     jest.fn(have => {
         expect(have).toEqual(want);
     });
 
-describe("binding", () => {
+describe("ViewModel component", () => {
+    const oldConsoleError = console.error;
+    
+    beforeAll(() => {
+        console.error = () => {};
+    });
+    
+    afterAll(() => {
+        console.error = oldConsoleError;
+    });
+    
     describe("data", () => {
         describe("own", () => {
             test("ViewModel should allow binding to own data", () => {
@@ -21,9 +32,9 @@ describe("binding", () => {
                 mount(
                     <ViewModel data={data}>
                         <div>
-                            <Bound props="foo">
+                            <Bind props="foo">
                                 { tester }
-                            </Bound>
+                            </Bind>
                         </div>
                     </ViewModel>
                 );
@@ -44,9 +55,9 @@ describe("binding", () => {
                         <div>
                             <ViewModel data={{ qux: 'moof' }}>
                                 <div>
-                                    <Bound props={['bar', 'qux']}>
+                                    <Bind props={['bar', 'qux']}>
                                         { tester }
-                                    </Bound>
+                                    </Bind>
                                 </div>
                             </ViewModel>
                         </div>
@@ -66,9 +77,9 @@ describe("binding", () => {
                 mount(
                     <ViewModel initialState={{ blerg: 'knurf' }}>
                         <div>
-                            <Bound props="blerg">
+                            <Bind props="blerg">
                                 { tester }
-                            </Bound>
+                            </Bind>
                         </div>
                     </ViewModel>
                 );
@@ -82,14 +93,22 @@ describe("binding", () => {
                 mount(
                     <ViewModel initialState={() => ({ hloom: "kazoo" })}>
                         <div>
-                            <Bound props="hloom">
+                            <Bind props="hloom">
                                 { tester }
-                            </Bound>
+                            </Bind>
                         </div>
                     </ViewModel>
                 );
                 
                 expect(tester).toHaveBeenCalled();
+            });
+            
+            test("ViewModel should throw an exception on invalid initialState", () => {
+                expect(() => {
+                    mount(
+                        <ViewModel initialState={null} />
+                    );
+                }).toThrow(`Invalid initialState: null`);
             });
         });
         
@@ -107,9 +126,9 @@ describe("binding", () => {
                             <div>
                                 <ViewModel initialState={() => ({ mymse: "puxx" })}>
                                     <div>
-                                        <Bound props={['gurgle', 'mymse']}>
+                                        <Bind props={['gurgle', 'mymse']}>
                                             { tester }
-                                        </Bound>
+                                        </Bind>
                                     </div>
                                 </ViewModel>
                             </div>
@@ -121,110 +140,421 @@ describe("binding", () => {
             });
         });
         
-        describe("setting", () => {
-            describe("own state", () => {
-                test("ViewModel should allow setting own state", done => {
-                    const values = {};
+        describe("modifying", () => {
+            test("ViewModel should call applyState modifier on rendering", () => {
+                let state, getter, result;
+                
+                const applier = jest.fn((currentState, $get) => {
+                    state = currentState;
+                    getter = $get;
                     
-                    mount(
-                        <ViewModel initialState={{ jakk: "chung" }}>
-                            <Bound props={[{ prop: 'jakk', key: 'jakk', publish: true }]}>
-                                { bound => { Object.assign(values, bound); }}
-                            </Bound>
-                        </ViewModel>
-                    );
-                    
-                    expect(values.jakk).toBe('chung');
-                    expect(typeof values.setJakk).toBe('function');
-                    
-                    values.setJakk('mung');
-                    
-                    // Need to break out of the event loop for ViewModel to get re-rendered
-                    setTimeout(() => {
-                        expect(values.jakk).toBe('mung');
-                        expect(typeof values.setJakk).toBe('function');
-                        done();
-                    }, 0);
+                    return {
+                        opptu: ["durp"],
+                        fugh: "quipple",
+                        runk: $get('kunwa'),
+                    };
+                });
+                
+                mount(
+                    <ViewModel data={{ kunwa: "tyxi" }}
+                        initialState={{ opptu: "yarf" }}
+                        applyState={applier}>
+                        <Bind props={["kunwa", "opptu", "fugh", "runk"]}>
+                            { values => {
+                                result = values;
+                            }}
+                        </Bind>
+                    </ViewModel>
+                );
+                
+                expect(state).toEqual({
+                    opptu: "yarf",
+                });
+                
+                expect(typeof getter).toBe('function');
+                expect(getter.$accessorType).toBe('get');
+                
+                expect(result).toEqual({
+                    kunwa: "tyxi",
+                    opptu: ["durp"],
+                    fugh: "quipple",
+                    runk: "tyxi",
                 });
             });
-            
-            describe("inherited state", () => {
-                test("ViewModel should allow setting inherited state", done => {
-                    const values = {};
+        });
+        
+        describe("observing", () => {
+            test("ViewModel should not call observeStateChange on initial rendering", () => {
+                const observer = jest.fn();
+                let result;
                 
-                    mount(
-                        <ViewModel initialState={{ durg: "wuygu" }}>
-                            <div>
-                                <ViewModel initialState={{ aummo: "roiq" }}>
-                                    <div>
-                                        <Bound props={[
-                                                { prop: 'value', key: 'durg', publish: true }
-                                            ]}>
-                                            { bound => { Object.assign(values, bound); }}
-                                        </Bound>
-                                    </div>
-                                </ViewModel>
-                            </div>
-                        </ViewModel>
-                    );
+                mount(
+                    <ViewModel initialState={{ durg: "jmoo" }} observeStateChange={observer}>
+                        <Bind props="durg">
+                            { values => {
+                                result = values;
+                            }}
+                        </Bind>
+                    </ViewModel>
+                );
                 
-                    expect(values.value).toBe('wuygu');
-                    expect(typeof values.setValue).toBe('function');
-                
-                    values.setValue('klatz');
-                
-                    setTimeout(() => {
-                        expect(values.value).toBe('klatz');
-                        expect(typeof values.setValue).toBe('function');
-                        done();
-                    }, 0);
+                expect(result).toEqual({
+                    durg: "jmoo",
                 });
+                
+                expect(observer).not.toHaveBeenCalled();
             });
             
-            describe("after parent re-render", () => {
-                test("setting state should work after parent component re-mount", done => {
-                    const data = { pharg: "nix" };
-                    const values = {};
-                    
-                    const tree = mount(
-                        <ViewModel data={data} initialState={{ vroom: "qrux" }}>
-                            <Bound props={{
-                                    value: {
-                                        key: "vroom",
-                                        publish: true
-                                    },
-                                    pharg: "pharg",
-                                }}>
-                                { bound => { Object.assign(values, bound); }}
-                            </Bound>
-                        </ViewModel>
-                    );
-                    
-                    expect(values.pharg).toBe("nix");
-                    expect(values.value).toBe("qrux");
-                    expect(typeof values.setValue).toBe('function');
-                    
-                    data.pharg = "nux";
-                    tree.mount();
-                    
-                    setTimeout(() => {
-                        expect(values.pharg).toBe("nux");
-                        expect(values.value).toBe("qrux");
-                        expect(typeof values.setValue).toBe('function');
+            test("ViewModel should call observeStateChange handler on state change", async () => {
+                let result, setter, args;
+                
+                const observer = jest.fn((...params) => { args = params; });
+                
+                mount(
+                    <ViewModel data={{ bunz: "krunz" }}
+                        initialState={{ hfou: "zitz" }}
+                        observeStateChange={observer}>
                         
+                        <Bind props={{ value: { key: "hfou", publish: true }}}>
+                            { ({ value, setValue }) => {
+                                result = value;
+                                setter = setValue;
+                            }}
+                        </Bind>
+                    </ViewModel>
+                );
+                
+                await setter("vroom");
+                
+                expect(result).toBe("vroom");
+                expect(observer).toHaveBeenCalled();
+                expect(args).toEqual([{
+                    bunz: "krunz",
+                    hfou: "vroom",
+                }]);
+            });
+        });
+    });
+    
+    describe("controller", () => {
+        test("given controller config, should instantiate a ViewController", async () => {
+            let value, dispatch;
+            
+            mount(
+                <ViewModel initialState={{ tyuf: "krankle" }}
+                    controller={{
+                        handlers: {
+                            event: ({ $set }, v) => { $set('tyuf', v); },
+                        },
+                    }}>
+                    <Bind props="tyuf" controller>
+                        { ({ tyuf }, { $dispatch }) => {
+                            value = tyuf;
+                            dispatch = $dispatch;
+                        }}
+                    </Bind>
+                </ViewModel>
+            );
+            
+            expect(value).toBe("krankle");
+            
+            dispatch('event', 'nux');
+            
+            await sleep(10);
+            
+            expect(value).toBe('nux');
+        });
+        
+        test("given protectedKeys prop but no controller config, should still instantiate a ViewController", () => {
+            let result, setter;
+            
+            mount(
+                <ViewModel initialState={{ kaffle: "durk" }} protectedKeys="kaffle">
+                    <Bind props={{ value: { key: 'kaffle', publish: true }}}>
+                        { ({ value, setValue }) => {
+                            result = value;
+                            setter = setValue;
+                        }}
+                    </Bind>
+                </ViewModel>
+            );
+            
+            expect(result).toBe("durk");
+            
+            expect(() => {
+                setter('cidu');
+            }).toThrow('Cannot find handler for event "setKaffle". Event arguments: ["cidu"]');
+        });
+    });
+    
+    describe("protectedKeys", () => {
+        let setter, result;
+        
+        afterEach(() => {
+            setter = result = null;
+        });
+        
+        describe("syntax", () => {
+            describe("valid syntax types", () => {
+                test("protected key can be a string", () => {
+                    mount(
+                        <ViewModel initialState={{ vurk: "yickle" }} protectedKeys="vurk">
+                            <Bind props={{ value: { key: 'vurk', publish: true }}}>
+                                { ({ setValue }) => {
+                                    setter = setValue;
+                                }}
+                            </Bind>
+                        </ViewModel>
+                    );
+            
+                    expect(() => {
+                        setter("burgle");
+                    }).toThrow('Cannot find handler for event "setVurk". Event arguments: ["burgle"]');
+                });
+        
+                test("protected key can be a Symbol, with specified event name", () => {
+                    const sym = Symbol('ueke');
+            
+                    mount(
+                        <ViewModel initialState={{ [sym]: "fagh" }} protectedKeys={{ [sym]: 'keueu' }}>
+                            <Bind props={{ value: { key: sym, publish: true, setterName: 'setValue' }}}>
+                                { ({ setValue }) => {
+                                    setter = setValue;
+                                }}
+                            </Bind>
+                        </ViewModel>
+                    );
+            
+                    expect(() => {
+                        setter({
+                            hudd: "gbon"
+                        });
+                    }).toThrow('Cannot find handler for event "keueu". Event arguments: [{"hudd":"gbon"}]');
+                });
+        
+                test("protected key can be a Symbol, with event name also being a Symbol", async () => {
+                    const sym = Symbol('ktulu');
+                    const event = Symbol('eerp');
+            
+                    mount(
+                        <ViewModel initialState={{ [sym]: "fitz" }}
+                            protectedKeys={{ [sym]: event }}
+                            controller={{
+                                handlers: {
+                                    [event]: (vc, value) => { result = value; },
+                                },
+                            }}>
+                            <Bind props={{ value: { key: sym, publish: true, setterName: 'setValue' }}}>
+                                { ({ value, setValue }) => {
+                                    result = value;
+                                    setter = setValue;
+                                }}
+                            </Bind>
+                        </ViewModel>
+                    );
+                    
+                    setter("cyff");
+                    
+                    await sleep(10);
+                    
+                    expect(result).toBe("cyff");
+                });
+        
+                test("protected keys can be an array", () => {
+                    mount(
+                        <ViewModel initialState={{ nuck: "saff" }} protectedKeys={['nuck']}>
+                            <Bind props={{ nuck: { key: 'nuck', publish: true }}}>
+                                { ({ setNuck }) => {
+                                    setter = setNuck;
+                                }}
+                            </Bind>
+                        </ViewModel>
+                    );
+            
+                    expect(() => {
+                        setter([0]);
+                    }).toThrow('Cannot find handler for event "setNuck". Event arguments: [[0]]');
+                });
+        
+                test("protected keys can be an object", () => {
+                    mount(
+                        <ViewModel initialState={{ lonto: "kuti" }} protectedKeys={{ lonto: "duff" }}>
+                            <Bind props={[['lonto', true]]}>
+                                { ({ setLonto }) => {
+                                    setter = setLonto;
+                                }}
+                            </Bind>
+                        </ViewModel>
+                    );
+            
+                    expect(() => {
+                        setter("ghon");
+                    }).toThrow('Cannot find handler for event "duff". Event arguments: ["ghon"]');
+                });
+            });
+            
+            describe("invalid syntax", () => {
+                const invalid = [undefined, null, 0, true, false, ''];
+                
+                // TODO Fuzzify this
+                describe("simplified syntax", () => {
+                    invalid.slice(2).forEach(option => {
+                        test(`it should throw on ${option}`, () => {
+                            expect(() => {
+                                mount(
+                                    <ViewModel protectedKeys={option} />
+                                );
+                            }).toThrow(`Invalid protected keys: ${option}`);
+                        });
+                    });
+                    
+                    test("it should throw when key is a Symbol but event is not specified", () => {
+                        const sym = Symbol('kront');
+                    
                         expect(() => {
-                            values.setValue("brak");
-                        }).not.toThrow();
-                        
-                        setTimeout(() => {
-                            expect(values.pharg).toBe("nux");
-                            expect(values.value).toBe("brak");
-                            expect(typeof values.setValue).toBe('function');
-                            
-                            done();
-                        }, 0);
-                    }, 0);
+                            mount(
+                                <ViewModel protectedKeys={sym} />
+                            );
+                        }).toThrow('Protected key Symbol(kront) requires event name.');
+                    });
                 });
+                
+                describe("array syntax", () => {
+                    [...invalid, []].forEach(option => {
+                        test(`it should throw on invalid key ${option}`, () => {
+                            expect(() => {
+                                mount(
+                                    <ViewModel protectedKeys={[option]} />
+                                );
+                            }).toThrow(`Invalid protected key: ${option}`);
+                        });
+                        
+                        test(`it should throw on invalid key ${option} in object definition`, () => {
+                            expect(() => {
+                                mount(
+                                    <ViewModel protectedKeys={[{ key: option }]} />
+                                );
+                            }).toThrow(`Invalid protected key: ${option}`);
+                        });
+                    });
+                    
+                    test("it should throw on invalid key definition (object)", () => {
+                        expect(() => {
+                            mount(
+                                <ViewModel protectedKeys={[{ hurf: "itzo" }]} />
+                            );
+                        }).toThrow(`Invalid protected key entry: {"hurf":"itzo"}`);
+                    });
+                });
+                
+                describe("object syntax", () => {
+                    [...invalid.slice(0, invalid.length - 1)].forEach(option => {
+                        test(`it should throw on invalid event "${option}"`, () => {
+                            expect(() => {
+                                mount(
+                                    <ViewModel protectedKeys={{ [option]: option }} />
+                                );
+                            }).toThrow(`Invalid event name for protected key "${option}": ${option}`);
+                        });
+                    });
+                    
+                    test("it should throw on invalid event (empty string)", () => {
+                        expect(() => {
+                            mount(
+                                <ViewModel protectedKeys={{ funto: '' }} />
+                            );
+                        }).toThrow(`Invalid event name for protected key "funto": ""`);
+                    });
+                    
+                    test("it should throw when key is a Symbol but event is not specified", () => {
+                        const sym = Symbol('oof');
+                    
+                        expect(() => {
+                            mount(
+                                <ViewModel protectedKeys={[{ key: sym }]} />
+                            );
+                        }).toThrow('Protected key Symbol(oof) requires event name.');
+                    });
+                });
+            });
+        });
+        
+        describe("implementation", () => {
+            test("calling a setter for protected key should fire event in own controller", async () => {
+                mount(
+                    <ViewModel initialState={{ utun: "riggo" }}
+                        protectedKeys="utun"
+                        controller={{
+                            handlers: {
+                                setUtun: (vc, value) => { result = value; },
+                            }
+                        }}>
+                        <Bind props={[['utun', true]]}>
+                            { ({ setUtun }) => {
+                                setter = setUtun;
+                            }}
+                        </Bind>
+                    </ViewModel>
+                );
+                
+                setter("vackle");
+                
+                await sleep(10);
+                
+                expect(result).toBe('vackle');
+            });
+            
+            test("calling a setter for protected key should fire event in parent controller", async () => {
+                mount(
+                    <ViewModel initialState={{ baff: "moow" }}
+                        protectedKeys="baff"
+                        controller={{
+                            handlers: {
+                                setBaff: (vc, value) => { result = value; },
+                            },
+                        }}>
+                        <ViewModel initialState={{ ning: "sutt" }} controller={{}}>
+                            <Bind props={[['baff', true]]}>
+                                { ({ setBaff }) => {
+                                    setter = setBaff;
+                                }}
+                            </Bind>
+                        </ViewModel>
+                    </ViewModel>
+                );
+                
+                setter("junt");
+                
+                await sleep(10);
+                
+                expect(result).toBe('junt');
+            });
+            
+            test("setting a value through controller handler should actually work", async () => {
+                mount(
+                    <ViewModel initialState={{ schmoo: "findus" }}
+                        protectedKeys="schmoo"
+                        controller={{
+                            handlers: {
+                                setSchmoo: ({ $set }, value) => { $set('schmoo', value); },
+                            },
+                        }}>
+                        <Bind props={[['schmoo', true]]}>
+                            { ({ schmoo, setSchmoo }) => {
+                                result = schmoo;
+                                setter = setSchmoo;
+                            }}
+                        </Bind>
+                    </ViewModel>
+                );
+                
+                expect(result).toBe("findus");
+                
+                setter("gurkle");
+                
+                await sleep(10);
+                
+                expect(result).toBe("gurkle");
             });
         });
     });

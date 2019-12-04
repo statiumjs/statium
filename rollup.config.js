@@ -4,7 +4,7 @@ import sucrase from 'rollup-plugin-sucrase';
 import pkg from './package.json';
 
 export default {
-    input: 'src/ViewModel.js',
+    input: 'src/index.js',
     output: [{
         file: pkg.main,
         format: 'cjs',
@@ -15,7 +15,16 @@ export default {
     
     // self-serve-ui project already includes React and Lodash as dependencies,
     // no reason to bundle these with Statium
-    external: ['react', 'lodash.get', 'lodash.set', 'lodash.has', 'lodash.clone'],
+    external: [
+        'react',
+        'lodash.get',
+        'lodash.set',
+        'lodash.has',
+        'lodash.clone',
+        'lodash.defer',
+        'lodash.upperfirst',
+    ],
+    
     context: null,
     
     // Rollup will warn about mixing default exports with named exports.

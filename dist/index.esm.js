@@ -1,481 +1,153 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import loGet from 'lodash.get';
+import loSet from 'lodash.set';
+import loHas from 'lodash.has';
+import loClone from 'lodash.clone';
+import upperFirst from 'lodash.upperfirst';
+import defer from 'lodash.defer';
 
-/**
- * The base implementation of `_.slice` without an iteratee call guard.
- *
- * @private
- * @param {Array} array The array to slice.
- * @param {number} [start=0] The start position.
- * @param {number} [end=array.length] The end position.
- * @returns {Array} Returns the slice of `array`.
- */
-function baseSlice(array, start, end) {
-  var index = -1,
-      length = array.length;
-
-  if (start < 0) {
-    start = -start > length ? 0 : (length + start);
-  }
-  end = end > length ? length : end;
-  if (end < 0) {
-    end += length;
-  }
-  length = start > end ? 0 : ((end - start) >>> 0);
-  start >>>= 0;
-
-  var result = Array(length);
-  while (++index < length) {
-    result[index] = array[index + start];
-  }
-  return result;
-}
-
-var _baseSlice = baseSlice;
-
-/**
- * Casts `array` to a slice if it's needed.
- *
- * @private
- * @param {Array} array The array to inspect.
- * @param {number} start The start position.
- * @param {number} [end=array.length] The end position.
- * @returns {Array} Returns the cast slice.
- */
-function castSlice(array, start, end) {
-  var length = array.length;
-  end = end === undefined ? length : end;
-  return (!start && end >= length) ? array : _baseSlice(array, start, end);
-}
-
-var _castSlice = castSlice;
-
-/** Used to compose unicode character classes. */
-var rsAstralRange = '\\ud800-\\udfff',
-    rsComboMarksRange = '\\u0300-\\u036f',
-    reComboHalfMarksRange = '\\ufe20-\\ufe2f',
-    rsComboSymbolsRange = '\\u20d0-\\u20ff',
-    rsComboRange = rsComboMarksRange + reComboHalfMarksRange + rsComboSymbolsRange,
-    rsVarRange = '\\ufe0e\\ufe0f';
-
-/** Used to compose unicode capture groups. */
-var rsZWJ = '\\u200d';
-
-/** Used to detect strings with [zero-width joiners or code points from the astral planes](http://eev.ee/blog/2015/09/12/dark-corners-of-unicode/). */
-var reHasUnicode = RegExp('[' + rsZWJ + rsAstralRange  + rsComboRange + rsVarRange + ']');
-
-/**
- * Checks if `string` contains Unicode symbols.
- *
- * @private
- * @param {string} string The string to inspect.
- * @returns {boolean} Returns `true` if a symbol is found, else `false`.
- */
-function hasUnicode(string) {
-  return reHasUnicode.test(string);
-}
-
-var _hasUnicode = hasUnicode;
-
-/**
- * Converts an ASCII `string` to an array.
- *
- * @private
- * @param {string} string The string to convert.
- * @returns {Array} Returns the converted array.
- */
-function asciiToArray(string) {
-  return string.split('');
-}
-
-var _asciiToArray = asciiToArray;
-
-/** Used to compose unicode character classes. */
-var rsAstralRange$1 = '\\ud800-\\udfff',
-    rsComboMarksRange$1 = '\\u0300-\\u036f',
-    reComboHalfMarksRange$1 = '\\ufe20-\\ufe2f',
-    rsComboSymbolsRange$1 = '\\u20d0-\\u20ff',
-    rsComboRange$1 = rsComboMarksRange$1 + reComboHalfMarksRange$1 + rsComboSymbolsRange$1,
-    rsVarRange$1 = '\\ufe0e\\ufe0f';
-
-/** Used to compose unicode capture groups. */
-var rsAstral = '[' + rsAstralRange$1 + ']',
-    rsCombo = '[' + rsComboRange$1 + ']',
-    rsFitz = '\\ud83c[\\udffb-\\udfff]',
-    rsModifier = '(?:' + rsCombo + '|' + rsFitz + ')',
-    rsNonAstral = '[^' + rsAstralRange$1 + ']',
-    rsRegional = '(?:\\ud83c[\\udde6-\\uddff]){2}',
-    rsSurrPair = '[\\ud800-\\udbff][\\udc00-\\udfff]',
-    rsZWJ$1 = '\\u200d';
-
-/** Used to compose unicode regexes. */
-var reOptMod = rsModifier + '?',
-    rsOptVar = '[' + rsVarRange$1 + ']?',
-    rsOptJoin = '(?:' + rsZWJ$1 + '(?:' + [rsNonAstral, rsRegional, rsSurrPair].join('|') + ')' + rsOptVar + reOptMod + ')*',
-    rsSeq = rsOptVar + reOptMod + rsOptJoin,
-    rsSymbol = '(?:' + [rsNonAstral + rsCombo + '?', rsCombo, rsRegional, rsSurrPair, rsAstral].join('|') + ')';
-
-/** Used to match [string symbols](https://mathiasbynens.be/notes/javascript-unicode). */
-var reUnicode = RegExp(rsFitz + '(?=' + rsFitz + ')|' + rsSymbol + rsSeq, 'g');
-
-/**
- * Converts a Unicode `string` to an array.
- *
- * @private
- * @param {string} string The string to convert.
- * @returns {Array} Returns the converted array.
- */
-function unicodeToArray(string) {
-  return string.match(reUnicode) || [];
-}
-
-var _unicodeToArray = unicodeToArray;
-
-/**
- * Converts `string` to an array.
- *
- * @private
- * @param {string} string The string to convert.
- * @returns {Array} Returns the converted array.
- */
-function stringToArray(string) {
-  return _hasUnicode(string)
-    ? _unicodeToArray(string)
-    : _asciiToArray(string);
-}
-
-var _stringToArray = stringToArray;
-
-var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
-
-/** Detect free variable `global` from Node.js. */
-var freeGlobal = typeof commonjsGlobal == 'object' && commonjsGlobal && commonjsGlobal.Object === Object && commonjsGlobal;
-
-var _freeGlobal = freeGlobal;
-
-/** Detect free variable `self`. */
-var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
-
-/** Used as a reference to the global object. */
-var root = _freeGlobal || freeSelf || Function('return this')();
-
-var _root = root;
-
-/** Built-in value references. */
-var Symbol = _root.Symbol;
-
-var _Symbol = Symbol;
-
-/**
- * A specialized version of `_.map` for arrays without support for iteratee
- * shorthands.
- *
- * @private
- * @param {Array} [array] The array to iterate over.
- * @param {Function} iteratee The function invoked per iteration.
- * @returns {Array} Returns the new mapped array.
- */
-function arrayMap(array, iteratee) {
-  var index = -1,
-      length = array == null ? 0 : array.length,
-      result = Array(length);
-
-  while (++index < length) {
-    result[index] = iteratee(array[index], index, array);
-  }
-  return result;
-}
-
-var _arrayMap = arrayMap;
-
-/**
- * Checks if `value` is classified as an `Array` object.
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an array, else `false`.
- * @example
- *
- * _.isArray([1, 2, 3]);
- * // => true
- *
- * _.isArray(document.body.children);
- * // => false
- *
- * _.isArray('abc');
- * // => false
- *
- * _.isArray(_.noop);
- * // => false
- */
-var isArray = Array.isArray;
-
-var isArray_1 = isArray;
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Used to resolve the
- * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
- * of values.
- */
-var nativeObjectToString = objectProto.toString;
-
-/** Built-in value references. */
-var symToStringTag = _Symbol ? _Symbol.toStringTag : undefined;
-
-/**
- * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
- *
- * @private
- * @param {*} value The value to query.
- * @returns {string} Returns the raw `toStringTag`.
- */
-function getRawTag(value) {
-  var isOwn = hasOwnProperty.call(value, symToStringTag),
-      tag = value[symToStringTag];
-
-  try {
-    value[symToStringTag] = undefined;
-    var unmasked = true;
-  } catch (e) {}
-
-  var result = nativeObjectToString.call(value);
-  if (unmasked) {
-    if (isOwn) {
-      value[symToStringTag] = tag;
-    } else {
-      delete value[symToStringTag];
+const error = msg => {
+    if (process.env.NODE_ENV === 'production') {
+        console.error(msg);
     }
-  }
-  return result;
-}
+    else {
+        throw new Error(msg);
+    }
+};
 
-var _getRawTag = getRawTag;
+const defaultGet = key => {
+    error(`Failed to retrieve a value for key "${key}", no ViewModel found`);
+};
 
-/** Used for built-in method references. */
-var objectProto$1 = Object.prototype;
+const defaultSet = (key, value) => {
+    error(`Failed to set key "${key}", no ViewModel found. Value: ${JSON.stringify(value)}`);
+};
 
-/**
- * Used to resolve the
- * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
- * of values.
- */
-var nativeObjectToString$1 = objectProto$1.toString;
+const defaultDispatch = (event, ...payload) => {
+    error(`Cannot find handler for event "${event}". Event arguments: ${JSON.stringify(payload)}`);
+};
 
-/**
- * Converts `value` to a string using `Object.prototype.toString`.
- *
- * @private
- * @param {*} value The value to convert.
- * @returns {string} Returns the converted string.
- */
-function objectToString(value) {
-  return nativeObjectToString$1.call(value);
-}
+const rootViewModel = {
+    formulas: {},
+    data: {},
+    state: {},
+    store: {},
+    $get: defaultGet,
+    $set: defaultSet,
+    $retrieve: key => rootViewModel.$get(key),
+    $dispatch: defaultDispatch,
+};
 
-var _objectToString = objectToString;
+const rootViewController = {
+    $get: rootViewModel.$retrieve,
+    $set: rootViewModel.$set,
+    $dispatch: defaultDispatch,
+};
 
-/** `Object#toString` result references. */
-var nullTag = '[object Null]',
-    undefinedTag = '[object Undefined]';
+const ViewModelContext = React.createContext({ vm: rootViewModel });
+const ViewControllerContext = React.createContext(rootViewController);
 
-/** Built-in value references. */
-var symToStringTag$1 = _Symbol ? _Symbol.toStringTag : undefined;
+let idCounter = 0;
 
-/**
- * The base implementation of `getTag` without fallbacks for buggy environments.
- *
- * @private
- * @param {*} value The value to query.
- * @returns {string} Returns the `toStringTag`.
- */
-function baseGetTag(value) {
-  if (value == null) {
-    return value === undefined ? undefinedTag : nullTag;
-  }
-  return (symToStringTag$1 && symToStringTag$1 in Object(value))
-    ? _getRawTag(value)
-    : _objectToString(value);
-}
+const getId = prefix => `${prefix}-${++idCounter}`;
 
-var _baseGetTag = baseGetTag;
-
-/**
- * Checks if `value` is object-like. A value is object-like if it's not `null`
- * and has a `typeof` result of "object".
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- * @example
- *
- * _.isObjectLike({});
- * // => true
- *
- * _.isObjectLike([1, 2, 3]);
- * // => true
- *
- * _.isObjectLike(_.noop);
- * // => false
- *
- * _.isObjectLike(null);
- * // => false
- */
-function isObjectLike(value) {
-  return value != null && typeof value == 'object';
-}
-
-var isObjectLike_1 = isObjectLike;
-
-/** `Object#toString` result references. */
-var symbolTag = '[object Symbol]';
-
-/**
- * Checks if `value` is classified as a `Symbol` primitive or object.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a symbol, else `false`.
- * @example
- *
- * _.isSymbol(Symbol.iterator);
- * // => true
- *
- * _.isSymbol('abc');
- * // => false
- */
-function isSymbol(value) {
-  return typeof value == 'symbol' ||
-    (isObjectLike_1(value) && _baseGetTag(value) == symbolTag);
-}
-
-var isSymbol_1 = isSymbol;
-
-/** Used as references for various `Number` constants. */
-var INFINITY = 1 / 0;
-
-/** Used to convert symbols to primitives and strings. */
-var symbolProto = _Symbol ? _Symbol.prototype : undefined,
-    symbolToString = symbolProto ? symbolProto.toString : undefined;
-
-/**
- * The base implementation of `_.toString` which doesn't convert nullish
- * values to empty strings.
- *
- * @private
- * @param {*} value The value to process.
- * @returns {string} Returns the string.
- */
-function baseToString(value) {
-  // Exit early for strings to avoid a performance hit in some environments.
-  if (typeof value == 'string') {
-    return value;
-  }
-  if (isArray_1(value)) {
-    // Recursively convert values (susceptible to call stack limits).
-    return _arrayMap(value, baseToString) + '';
-  }
-  if (isSymbol_1(value)) {
-    return symbolToString ? symbolToString.call(value) : '';
-  }
-  var result = (value + '');
-  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
-}
-
-var _baseToString = baseToString;
-
-/**
- * Converts `value` to a string. An empty string is returned for `null`
- * and `undefined` values. The sign of `-0` is preserved.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to convert.
- * @returns {string} Returns the converted string.
- * @example
- *
- * _.toString(null);
- * // => ''
- *
- * _.toString(-0);
- * // => '-0'
- *
- * _.toString([1, 2, 3]);
- * // => '1,2,3'
- */
-function toString(value) {
-  return value == null ? '' : _baseToString(value);
-}
-
-var toString_1 = toString;
-
-/**
- * Creates a function like `_.lowerFirst`.
- *
- * @private
- * @param {string} methodName The name of the `String` case method to use.
- * @returns {Function} Returns the new case function.
- */
-function createCaseFirst(methodName) {
-  return function(string) {
-    string = toString_1(string);
-
-    var strSymbols = _hasUnicode(string)
-      ? _stringToArray(string)
-      : undefined;
-
-    var chr = strSymbols
-      ? strSymbols[0]
-      : string.charAt(0);
-
-    var trailing = strSymbols
-      ? _castSlice(strSymbols, 1).join('')
-      : string.slice(1);
-
-    return chr[methodName]() + trailing;
-  };
-}
-
-var _createCaseFirst = createCaseFirst;
-
-/**
- * Converts the first character of `string` to upper case.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category String
- * @param {string} [string=''] The string to convert.
- * @returns {string} Returns the converted string.
- * @example
- *
- * _.upperFirst('fred');
- * // => 'Fred'
- *
- * _.upperFirst('FRED');
- * // => 'FRED'
- */
-var upperFirst = _createCaseFirst('toUpperCase');
-
-var upperFirst_1 = upperFirst;
-
-const _jsxFileName = "/Users/nohuhu/DataStax/statium/src/ViewModel.js";
 const chain = (proto, props) => Object.assign(Object.create(proto), props);
+
+const setterNameForKey = key => `set${upperFirst(key)}`;
+
+const getKeys = object =>
+    [].concat(Object.getOwnPropertySymbols(object), Object.getOwnPropertyNames(object));
+    
+const getKeyPrefix = key =>
+    typeof key === 'symbol' ? key : String(key).split('.').shift();
+
+const validKey = key =>
+    (typeof key === 'string' && key !== '') || typeof key === 'symbol';
+
+const findOwner = (object, entityName, key) => {
+    let depth = 0;
+    
+    for (let owner = object; owner; owner = owner.parent) {
+        const entity = owner[entityName];
+        
+        if (typeof entity === 'object' && entity.hasOwnProperty(key)) {
+            return [owner, depth];
+        }
+        
+        depth++;
+    }
+    
+    return [null];
+};
+
+const normalizeProtectedKey = entry => {
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+        if (!('key' in entry)) {
+            throw new Error(`Invalid protected key entry: ${JSON.stringify(entry)}`);
+        }
+        
+        const { key, event } = entry;
+        
+        if (!validKey(key)) {
+            throw new Error(`Invalid protected key: ${JSON.stringify(key)}`);
+        }
+        
+        if (typeof key === 'symbol' && !validKey(event)) {
+            throw new Error(`Protected key ${String(key)} requires event name.`);
+        }
+        
+        if (!validKey(event)) {
+            throw new Error(`Invalid event name for protected key "${String(key)}": ${JSON.stringify(event)}`);
+        }
+        
+        return [key, event || setterNameForKey(key)];
+    }
+    else if (validKey(entry)) {
+        if (typeof entry === 'symbol') {
+            throw new Error(`Protected key ${String(entry)} requires event name.`);
+        }
+        
+        return [entry, setterNameForKey(entry)];
+    }
+    
+    throw new Error(`Invalid protected key: ${JSON.stringify(entry)}`);
+};
+
+const normalizeProtectedKeys = keys => {
+    let validatedKeys;
+    
+    if (validKey(keys)) {
+        const [key, event] = normalizeProtectedKey(keys);
+        
+        validatedKeys = { [key]: event };
+    }
+    else if (keys && typeof keys === 'object') {
+        if (Array.isArray(keys)) {
+            validatedKeys = keys.reduce((acc, entry) => {
+                const [key, event] = normalizeProtectedKey(entry);
+                
+                acc[key] = event;
+                
+                return acc;
+            }, {});
+        }
+        else {
+            validatedKeys = {};
+            
+            for (const key of getKeys(keys)) {
+                const event = keys[key];
+                const [validatedKey, validatedEvent] = normalizeProtectedKey({ key, event });
+                
+                validatedKeys[validatedKey] = validatedEvent;
+            }
+        }
+    }
+    else {
+        throw new Error(`Invalid protected keys: ${JSON.stringify(keys)}`);
+    }
+    
+    return validatedKeys;
+};
 
 /**
  *
@@ -495,7 +167,7 @@ const chain = (proto, props) => Object.assign(Object.create(proto), props);
  * with readability and maintainability.
  *
  * * It allows doing correctness checks at the component rendering time, or at component
- * constructor definition time (when used via `withBoundProps` HOC), as opposed to every time
+ * constructor definition time (when used via `withBindings` HOC), as opposed to every time
  * a key/value pair is retrieved from ViewModel store.
  *
  * * It provides for better developer experience by giving an option to define bindings
@@ -616,57 +288,74 @@ const chain = (proto, props) => Object.assign(Object.create(proto), props);
  *
  * @private
  */
-const normalizeBindings = bindings => {
-    if (typeof bindings === 'string') {
+const normalizeBindings = (bindings = {}) => {
+    if (!bindings || !(typeof bindings === 'object' || validKey(bindings))) {
+        throw new Error(`Invalid bindings: ${JSON.stringify(bindings)}`);
+    }
+    
+    if (validKey(bindings)) {
         bindings = [bindings];
     }
     
     if (Array.isArray(bindings)) {
         bindings = bindings.reduce((map, propName) => {
-            if (typeof propName === 'string') {
+            if (validKey(propName)) {
                 map[propName] = propName;
             }
-            else if (typeof propName === 'object') {
-                let { prop, key, publish, ...rest } = propName;
+            else if (Array.isArray(propName)) {
+                const [key, publish = false] = propName;
                 
-                // eslint-disable-next-line no-eq-null
-                if (key == null && typeof publish !== 'string') {
+                // prop name is the same as key in this case
+                map[key] = { key, publish };
+            }
+            else if (typeof propName === 'object') {
+                let { prop, key, publish = false, ...rest } = propName;
+                
+                if (!validKey(key)) {
                     throw new Error("The 'key' field is required for a binding: " +
                                     JSON.stringify(propName));
                 }
                 
-                // eslint-disable-next-line no-eq-null
-                prop = prop == null ? key : prop;
+                prop = validKey(prop) ? prop : key;
                 
-                map[prop] = {
-                    ...rest,
-                    key,
-                    publish,
-                };
+                map[prop] = { ...rest, key, publish };
             }
             
             return map;
         }, {});
     }
     
-    return Object.keys(bindings || {}).map(propName => {
+    return getKeys(bindings).map(propName => {
         const binding = bindings[propName];
         
-        if (typeof binding === 'string') {
-            return {
-                propName,
-                key: binding,
-                publish: false,
-            };
+        if (validKey(binding)) {
+            return { propName, key: binding, publish: false };
+        }
+        else if (typeof binding === 'function') {
+            return { propName, key: propName, formula: binding };
         }
         else if (typeof binding === 'object') {
-            const { key, publish, setterName } = binding;
+            let { key, publish, formula, setterName } = binding;
+            
+            if (formula && typeof formula !== 'function') {
+                throw new Error(`Invalid formula definition: ${JSON.stringify(formula)}`);
+            }
+            
+            if ('publish' in binding && typeof publish !== 'boolean') {
+                throw new Error(`Invalid publish value: ${JSON.stringify(publish)}. Should be 'true' or 'false'.`);
+            }
+            
+            if (publish && typeof key === 'symbol' && !setterName) {
+                throw new Error("Setter function name is required for publishing Symbol " +
+                                "keys in a ViewModel. Published key: " + String(key));
+            }
             
             return {
                 propName,
                 key: key || propName,
-                publish: publish === true ? key : publish,
-                ...publish ? { setterName: setterName || `set${upperFirst_1(propName)}` } : {},
+                publish,
+                ...publish ? { setterName: setterName || setterNameForKey(propName) } : {},
+                ...formula ? { formula } : {},
             };
         }
         else {
@@ -678,141 +367,502 @@ const normalizeBindings = bindings => {
 
 const mapProps = (vm, bindings) =>
     bindings.reduce((out, binding) => {
-        const { propName, key, publish, setterName } = binding;
-
-        // Some bound components do not consume, only publish
-        if (key) {
-            out[propName] = vm.retrieve(key);
-        }
+        const { propName, key, formula, publish, setterName } = binding;
+        
+        out[propName] = formula ? formula(vm.$retrieve) : vm.$retrieve(key);
         
         if (publish) {
-            out[setterName] = value => vm.set(publish, value);
+            out[setterName] = vm.getKeySetter(vm, key);
         }
         
         return out;
     }, {});
 
-const findKeyOwner = (vm, key) => {
-    for (let owner = vm; owner; owner = owner.parent) {
-        if (owner.store.hasOwnProperty(key)) {
-            return owner;
+const mapPropsToArray = (vm, bindings) =>
+    bindings.map(binding => {
+        const { key, formula, publish } = binding;
+        
+        const value = formula ? formula(vm.$retrieve) : vm.$retrieve(key);
+        
+        if (!publish) {
+            return value;
+        }
+        
+        const setter = vm.getKeySetter(vm, key);
+        
+        return [value, setter];
+    });
+
+const retrieve = (vm, key) =>
+    vm.formulas[key] ? vm.formulas[key](vm.$retrieve) : vm.$get(key);
+
+const getter = (vm, key) => loGet(vm.store, key);
+
+const getStateKeyOwner = (vm, key) => {
+    const prefix = getKeyPrefix(key);
+    
+    const [owner, depth] = findOwner(vm, 'state', prefix);
+    
+    // If no owner was found, the key does not exist up the prototype chain.
+    // This means we can't set it.
+    if (owner === null) {
+        throw new Error(
+            `Cannot find owner ViewModel for key ${key}. You need to provide ` +
+            `initial value for this key in "initialState" prop.`
+        );
+    }
+    
+    return [owner, depth];
+};
+
+const setter = (vm, key, value) => {
+    const [owner] = getStateKeyOwner(vm, key);
+    
+    if (owner.protectedKeys && key in owner.protectedKeys) {
+        const event = owner.protectedKeys[key];
+        
+        owner.$dispatch(event, value);
+    }
+    else {
+        owner.setState({ [key]: value });
+    }
+};
+
+const multiGet = (vm, keys) => {
+    let objectSyntax = false;
+    
+    if (keys.length === 1) {
+        // Trivial case when getter invoked with one string key name, thusly:
+        // const foo = $get('foo')
+        if (validKey(keys[0])) {
+            return vm.$retrieve(keys[0]);
+        }
+        else if (typeof keys[0] === 'object') {
+            keys = keys[0];
+        
+            if (!Array.isArray(keys)) {
+                objectSyntax = true;
+            }
         }
     }
     
-    return null;
-};
-
-const retrieve = (vm, key) =>
-    vm.formulas[key] ? vm.formulas[key](vm.retrieve) : vm.get(key);
-
-const getter = (vm, key) => vm.store[key];
-
-const setter = async (vm, key, promisedValue) => {
-    const value = await promisedValue;
+    const bindings = normalizeBindings(keys);
     
-    // If no owner was found, the key does not exist up the prototype chain,
-    // which means current ViewModel is the new owner.
-    (findKeyOwner(vm, key) || vm).dispatch({ [key]: value });
+    return objectSyntax ? mapProps(vm, bindings) : mapPropsToArray(vm, bindings);
 };
 
-const ViewModelContext = React.createContext();
-
-// Yes there's a prop named "props". Seemed the most apt name here ¯\_(ツ)_/¯
-const Bound = ({ props, children }) => {
-    const bindings = normalizeBindings(props);
+const multiSet = (vm, key, value) => {
+    let kv;
     
-    return (
-        React.createElement(ViewModelContext.Consumer, {__self: null, __source: {fileName: _jsxFileName, lineNumber: 251}}
-            ,  vm => children(mapProps(vm, bindings)) 
-        )
-    );
-};
-
-const withBoundProps = boundProps => Component => {
-    const bindings = normalizeBindings(boundProps);
-    
-    // Bound props come *last*, which bears the possibility of clobbering similar named
-    // props passed to component from elsewhere. This tradeoff, however, is much better
-    // from debugging standpoint than the other way around.
-    return componentProps => (
-        React.createElement(ViewModelContext.Consumer, {__self: null, __source: {fileName: _jsxFileName, lineNumber: 264}}
-            ,  vm => React.createElement(Component, { ...componentProps, ...mapProps(vm, bindings), __self: null, __source: {fileName: _jsxFileName, lineNumber: 265}} ) 
-        )
-    );
-};
-
-const rootStore = {};
-const rootFormulas = {};
-const rootData = {};
-
-/// !!! TODO
-// Add a hook useBound()
-// !!!
-
-class ViewModelState extends React.Component {
-    static getDerivedStateFromProps(props, state) {
-        const { vm, dataToState } = props;
-        
-        return dataToState ? dataToState(vm.data, state) : null;
+    if (key && typeof key === 'object' && !Array.isArray(key)) {
+        kv = key;
+    }
+    else if (validKey(key)) {
+        kv = {
+            [key]: value
+        };
     }
     
+    if (!kv) {
+        throw new Error(`Invalid arguments: key "${JSON.stringify(key)}", `+
+                        `value: "${JSON.stringify(value)}"`);
+    }
+    
+    const ownerMap = new Map();
+    
+    for (const k of getKeys(kv)) {
+        const [owner, depth] = getStateKeyOwner(vm, k);
+        
+        let o = ownerMap.get(owner);
+        
+        // eslint-disable-next-line no-eq-null
+        if (o == null) {
+            o = {
+                owner,
+                depth,
+                values: {},
+            };
+            
+            ownerMap.set(owner, o);
+        }
+        
+        o.values[k] = kv[k];
+    }
+    
+    if (process.env.NODE_ENV !== 'production') {
+        if (ownerMap.size > 1) {
+            const offendingKeys = [...ownerMap.values()].map(({ owner, values }) => {
+                const keys = getKeys(values).map(k => `"${String(k)}"`);
+            
+                if (!keys.length) {
+                    return '';
+                }
+                else if (keys.length === 1) {
+                    return `key ${keys[0]} is defined in ViewModel with id: "${owner.id}"`;
+                }
+                else {
+                    return `keys ${keys.join(', ')} are defined in ViewModel with id: "${owner.id}"`;
+                }
+            });
+            
+            console.warn(
+                `Setting multiple key/value pairs belonging to different ViewModels ` +
+                `simultaneously can lead to performance issues because of extra rendering ` +
+                `involved. Offending key/value pairs: ${offendingKeys.join('; ')}.`
+            );
+        }
+    }
+    
+    const sortedQueue = [...ownerMap.values()].sort((a, b) => {
+        // Shouldn't ever happen but hey...
+        if (process.env.NODE_ENV !== 'production') {
+            if (a.depth === b.depth) {
+                throw new Error(`Two owner ViewModels of equal depth?!`);
+            }
+        }
+        
+        return a.depth < b.depth ? 1 : -1;
+    });
+    
+    for (const item of sortedQueue) {
+        const { owner, values } = item;
+        
+        owner.setState(values);
+    }
+};
+
+const accessorizeViewModel = vm => {
+    vm.$retrieve = key => retrieve(vm, key);
+    vm.$retrieve.$accessorType = 'retrieve';
+    
+    vm.$get = key => getter(vm, key);
+    vm.$get.$accessorType = 'get';
+    
+    vm.$set = (...args) => setter(vm, ...args);
+    vm.$set.$accessorType = 'set';
+    
+    vm.$dispatch = vm.$dispatch || vm.parent.$dispatch;
+    
+    return vm;
+};
+
+const validateInitialState = state => {
+    if (state && typeof state === 'object' && !Array.isArray(state)) {
+        return true;
+    }
+    
+    throw new Error(`Invalid initialState: ${JSON.stringify(state)}`);
+};
+
+const _jsxFileName = "/Users/nohuhu/DataStax/statium/src/ViewController.js";
+const expose = ({ $get, $set, $dispatch }) => ({
+    $get,
+    $set,
+    $dispatch,
+});
+
+const dispatcher = (vc, event, payload) => {
+    const [owner] = findOwner(vc, 'handlers', event);
+    const handler = owner && owner.handlers[event];
+    
+    if (typeof handler === 'function') {
+        vc.defer(handler, vc, true, ...payload);
+    }
+    else {
+        rootViewController.$dispatch(event, ...payload);
+    }
+};
+
+const accessorizeViewController = (vm, vc) => {
+    vc.$get = (...args) => multiGet(vm, args);
+    vc.$get.$accessorType = 'get';
+    
+    vc.$set = (...args) => multiSet(vm, ...args);
+    vc.$set.$accessorType = 'set';
+    
+    vc.$dispatch = (event, ...payload) => dispatcher(vc, event, payload);
+    vc.$dispatch.$accessorType = 'dispatch';
+    
+    return vc;
+};
+
+class ViewController extends React.Component {
     constructor(props) {
         super(props);
         
-        let { initialState } = props;
+        this.id = 'id' in props      ? props.id
+                : 'ownerId' in props ? `${props.ownerId}-controller`
+                :                      getId('ViewController')
+                ;
         
-        if (typeof initialState === 'function') {
-            initialState = initialState(props);
-        }
-
-        this.state = {...initialState};
+        this.timerMap = new Map();
+        this.defer = this.defer.bind(this);
+        this.runRenderHandlers = this.runRenderHandlers.bind(this);
     }
     
-    componentDidUpdate() {
-        const { vm, observer } = this.props;
+    componentWillUnmount() {
+        for (const timer of this.timerMap.values()) {
+            clearTimeout(timer);
+        }
         
-        if (typeof observer === 'function') {
-            observer(vm.store);
+        this.timerMap.clear();
+    }
+    
+    defer(fn, vc, cancel = false, ...args) {
+        let timer = this.timerMap.get(fn);
+        
+        if (timer) {
+            if (cancel) {
+                clearTimeout(timer);
+                this.timerMap.delete(fn);
+            }
+            else {
+                console.warn('Double executing handler function: ', fn.toString());
+            }
+        }
+        
+        timer = defer(() => {
+            fn(expose(vc), ...args);
+        });
+        
+        this.timerMap.set(fn, timer);
+    }
+    
+    runRenderHandlers(vc, props) {
+        const me = this;
+        
+        const { initialize, invalidate } = props;
+        
+        if (!me.$initialized) {
+            if (typeof initialize === 'function') {
+                // We have to defer executing the function because setting state
+                // is prohibited during rendering cycle.
+                me.defer((...args) => {
+                    initialize(...args);
+                    me.$initialized = true;
+                }, vc);
+            }
+            else {
+                me.$initialized = true;
+            }
+        }
+        else {
+            // Same as `initialize`, we need to run `invalidate`
+            // out of event loop.
+            if (typeof invalidate === 'function') {
+                me.defer(invalidate, vc, true); // Cancel previous invocation
+            }
         }
     }
     
     render() {
         const me = this;
-        const { vm, children } = me.props;
         
-        const store = { ...vm.data, ...me.state };
-        vm.store = chain(vm.parent ? vm.parent.store : rootStore, store);
+        const { id, $viewModel, handlers, children } = me.props;
         
-        vm.dispatch = newState => {
-            me.setState(newState);
-        };
+        const innerVC = ({ vm }) => 
+            React.createElement(ViewControllerContext.Consumer, {__self: this, __source: {fileName: _jsxFileName, lineNumber: 114}}
+                ,  parent => {
+                    const vc = accessorizeViewController(vm, {
+                        id: id || me.id,
+                        parent,
+                        handlers,
+                        defer: me.defer,
+                    });
+                    
+                    // ViewModel needs dispatcher reference to fire events
+                    // for corresponding protected keys.
+                    vm.$dispatch = vc.$dispatch;
+                    
+                    // We *need* to run initialize and invalidate handlers during rendering,
+                    // as opposed to a lifecycle method such as `componentDidMount`.
+                    // The purpose of these functions is to do something that might affect
+                    // parent ViewModel state, and we need to have the `vm` ViewModel
+                    // object reference to be able to do that. `vm` comes either from
+                    // ViewModelContext, or directly injected by parent ViewModel,
+                    // but in each case that happens during rendering cycle,
+                    // not before or after.
+                    me.runRenderHandlers(vc, me.props);
+                    
+                    return (
+                        React.createElement(ViewControllerContext.Provider, { value: vc, __self: this, __source: {fileName: _jsxFileName, lineNumber: 138}}
+                            ,  children 
+                        )
+                    );
+                }
+            );
     
-        return (
-            React.createElement(ViewModelContext.Provider, { value: {...vm}, __self: this, __source: {fileName: _jsxFileName, lineNumber: 317}}
-                ,  children 
-            )
-        );
+        return $viewModel
+            ? innerVC({ vm: $viewModel })
+            : React.createElement(ViewModelContext.Consumer, {__self: this, __source: {fileName: _jsxFileName, lineNumber: 147}}
+                ,  innerVC 
+              );
     }
 }
 
-const ViewModel = ({ data, initialState, formulas, dataToState, observer, children }) => (
-    React.createElement(ViewModelContext.Consumer, {__self: null, __source: {fileName: _jsxFileName, lineNumber: 325}}
-        ,  parent => {
-            const vm = {
-                parent: parent || null,
-                formulas: chain(parent ? parent.formulas : rootFormulas, formulas),
-                data: chain(parent ? parent.data : rootData, data),
-                retrieve: key => retrieve(vm, key),
-                get: key => getter(vm, key),
-                set: (...args) => setter(vm, ...args),
-            };
+const _jsxFileName$1 = "/Users/nohuhu/DataStax/statium/src/ViewModel.js";
+const dotRe = /\./;
+
+const applyViewModelState = (currentState, values) => {
+    const newState = { ...currentState };
+    
+    let updated = false;
+    
+    for (const key of getKeys(values)) {
+        const value = values[key];
         
+        // Cheaper operation if no deep inspection is necessary.
+        if (typeof key === 'symbol' || !dotRe.test(key)) {
+            if (!Object.is(currentState[key], value)) {
+                newState[key] = value;
+                updated = true;
+            }
+        }
+        else {
+            const hasKey = loHas(currentState, key);
+            const oldValue = loGet(currentState, key);
+    
+            // All this awkward gymnastics with cloning is to force ViewModel re-render
+            // upon value change. 
+            // TODO Come up with a better way to solve this problem.
+            if (!hasKey || !Object.is(oldValue, value)) {
+                const prefix = getKeyPrefix(key);
+                const copy = loClone(currentState[prefix]);
+            
+                newState[prefix] = copy;
+                loSet(newState, key, value);
+            
+                updated = true;
+            }
+        }
+    }
+    
+    return updated ? newState : currentState;
+};
+
+class ViewModelState extends React.Component {
+    static getDerivedStateFromProps(props, localState) {
+        const { vm, applyState } = props;
+        
+        return applyState ? applyState(localState, vm.$get) : null;
+    }
+    
+    constructor(props) {
+        super(props);
+        
+        this.setViewModelState = this.setViewModelState.bind(this);
+        this.getKeySetter = this.getKeySetter.bind(this);
+        
+        let { initialState, protectedKeys, vm } = props;
+        
+        // eslint-disable-next-line no-eq-null
+        if (protectedKeys != null) {
+            this.protectedKeys = normalizeProtectedKeys(protectedKeys);
+        }
+        
+        if (typeof initialState === 'function') {
+            initialState = initialState(vm.$retrieve);
+        }
+        
+        if (process.env.NODE_ENV !== 'production') {
+            validateInitialState(initialState);
+        }
+        
+        this.state = {...initialState};
+    }
+    
+    componentDidUpdate() {
+        const { vm, observeStateChange } = this.props;
+        
+        if (typeof observeStateChange === 'function') {
+            observeStateChange(vm.store);
+        }
+    }
+    
+    getKeySetter(vm, key) {
+        if (!(key in vm.state) && key in vm.data) {
+            throw new Error(`Setting read-only key "${String(key)}" is not allowed.`);
+        }
+        
+        const setter = value => vm.$set(key, value);
+        setter.$accessorType = 'set';
+        
+        return setter;
+    }
+    
+    setViewModelState(props) {
+        const me = this;
+        
+        return new Promise(resolve => {
+            me.setState(
+                state => applyViewModelState(state, props),
+                () => { resolve(true); }
+            );
+        });
+    }
+    
+    render() {
+        const me = this;
+        
+        const { vm, children } = me.props;
+        
+        vm.state = chain(vm.parent.state, me.state);
+        
+        const store = { ...vm.data, ...me.state };
+        vm.store = chain(vm.parent.store, store);
+        
+        vm.protectedKeys = me.protectedKeys;
+        vm.getKeySetter = me.getKeySetter;
+        vm.setState = me.setViewModelState;
+        
+        const innerViewModel = (
+            React.createElement(ViewModelContext.Provider, { value: { vm }, __self: this, __source: {fileName: _jsxFileName$1, lineNumber: 127}}
+                ,  children 
+            )
+        );
+        
+        const controller = me.props.controller || (me.protectedKeys ? {} : null);
+        
+        return !controller
+            ? innerViewModel
+            : React.createElement(ViewController, { ...controller, $viewModel: vm, ownerId: vm.id, __self: this, __source: {fileName: _jsxFileName$1, lineNumber: 136}}
+                    ,  innerViewModel 
+              );
+    }
+}
+
+/*
+ * Accepted props:
+ *  id, data, initialState, formulas, applyState, observeStateChange, controller,
+ *  protectedKeys, children
+ */
+const ViewModel = props => (
+    React.createElement(ViewModelContext.Consumer, {__self: null, __source: {fileName: _jsxFileName$1, lineNumber: 148}}
+        ,  ({ vm: parent }) => {
+            const formulas = chain(parent.formulas, props.formulas);
+            const data = chain(parent.data, props.data);
+            const state = chain(parent.state, {});
+            
+            const vm = accessorizeViewModel({
+                id: 'id' in props ? props.id : getId('ViewModel'),
+                parent,
+                formulas,
+                data,
+                state,
+                // This property gets overwritten by ViewModelState.render(); the purpose
+                // of having it here is to provide initial empty state object for
+                // applyState()
+                store: { ...data, ...state },
+            });
+            
             return (
                 React.createElement(ViewModelState, { vm: vm,
-                    initialState: initialState,
-                    dataToState: dataToState,
-                    observer: observer, __self: null, __source: {fileName: _jsxFileName, lineNumber: 337}}
-                    ,  children 
+                    controller: props.controller,
+                    initialState: props.initialState,
+                    applyState: props.applyState,
+                    observeStateChange: props.observeStateChange,
+                    protectedKeys: props.protectedKeys, __self: null, __source: {fileName: _jsxFileName$1, lineNumber: 167}}
+                    ,  props.children 
                 )
             );
         }
@@ -823,8 +873,53 @@ ViewModel.defaultProps = {
     data: {},
     initialState: {},
     formulas: {},
-    dataToState: null,
+    applyState: null,
+};
+
+const _jsxFileName$2 = "/Users/nohuhu/DataStax/statium/src/Bind.js";
+// Yes there's a prop named "props". Seemed the most apt name here ¯\_(ツ)_/¯
+const Bind = ({ props, controller, children }) => {
+    const bindings = normalizeBindings(props);
+    
+    return (
+        React.createElement(ViewModelContext.Consumer, {__self: null, __source: {fileName: _jsxFileName$2, lineNumber: 12}}
+            ,  ({ vm }) => !controller
+                ? children(mapProps(vm, bindings))
+                : React.createElement(ViewControllerContext.Consumer, {__self: null, __source: {fileName: _jsxFileName$2, lineNumber: 15}}
+                    ,  vc => children(mapProps(vm, bindings), expose(vc)) 
+                  )
+            
+        )
+    );
+};
+
+const _jsxFileName$3 = "/Users/nohuhu/DataStax/statium/src/withBindings.js";
+const withBindings = boundProps => Component => {
+    const bindings = normalizeBindings(boundProps);
+    
+    // Bound props come *last*, which bears the possibility of clobbering similar named
+    // props passed to component from elsewhere. This tradeoff, however, is much better
+    // from debugging standpoint than the other way around.
+    const ComponentWithBindings = componentProps => (
+        React.createElement(ViewModelContext.Consumer, {__self: null, __source: {fileName: _jsxFileName$3, lineNumber: 13}}
+            ,  ({ vm }) => React.createElement(Component, { ...componentProps, ...mapProps(vm, bindings), __self: null, __source: {fileName: _jsxFileName$3, lineNumber: 14}} ) 
+        )
+    );
+    
+    return ComponentWithBindings;
+};
+
+const useBindings = (..._bindings) => {
+    const { vm } = useContext(ViewModelContext);
+    
+    return multiGet(vm, _bindings);
+};
+
+const useController = () => {
+    const vc = useContext(ViewControllerContext);
+    
+    return { $get: vc.$get, $set: vc.$set, $dispatch: vc.$dispatch };
 };
 
 export default ViewModel;
-export { Bound, chain, findKeyOwner, getter, mapProps, normalizeBindings, retrieve, setter, withBoundProps };
+export { Bind, ViewController, useBindings, useController, withBindings };
