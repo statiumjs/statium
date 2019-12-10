@@ -51,7 +51,7 @@ let idCounter = 0;
 
 const getId = prefix => `${prefix}-${++idCounter}`;
 
-const chain = (proto, props) => Object.assign(Object.create(proto), props);
+const chain = (proto, ...sources) => Object.assign(Object.create(proto), ...sources);
 
 const setterNameForKey = key => `set${upperFirst(key)}`;
 
@@ -393,6 +393,8 @@ const mapPropsToArray = (vm, bindings) =>
         return [value, setter];
     });
 
+const accessorType = Symbol('accessorType');
+
 const retrieve = (vm, key) =>
     vm.formulas[key] ? vm.formulas[key](vm.$retrieve) : vm.$get(key);
 
@@ -475,7 +477,6 @@ const multiSet = (vm, key, value) => {
         
         let o = ownerMap.get(owner);
         
-        // eslint-disable-next-line no-eq-null
         if (o == null) {
             o = {
                 owner,
@@ -487,30 +488,6 @@ const multiSet = (vm, key, value) => {
         }
         
         o.values[k] = kv[k];
-    }
-    
-    if (process.env.NODE_ENV !== 'production') {
-        if (ownerMap.size > 1) {
-            const offendingKeys = [...ownerMap.values()].map(({ owner, values }) => {
-                const keys = getKeys(values).map(k => `"${String(k)}"`);
-            
-                if (!keys.length) {
-                    return '';
-                }
-                else if (keys.length === 1) {
-                    return `key ${keys[0]} is defined in ViewModel with id: "${owner.id}"`;
-                }
-                else {
-                    return `keys ${keys.join(', ')} are defined in ViewModel with id: "${owner.id}"`;
-                }
-            });
-            
-            console.warn(
-                `Setting multiple key/value pairs belonging to different ViewModels ` +
-                `simultaneously can lead to performance issues because of extra rendering ` +
-                `involved. Offending key/value pairs: ${offendingKeys.join('; ')}.`
-            );
-        }
     }
     
     const sortedQueue = [...ownerMap.values()].sort((a, b) => {
@@ -533,13 +510,16 @@ const multiSet = (vm, key, value) => {
 
 const accessorizeViewModel = vm => {
     vm.$retrieve = key => retrieve(vm, key);
-    vm.$retrieve.$accessorType = 'retrieve';
+    vm.$retrieve[accessorType] = 'retrieve';
     
     vm.$get = key => getter(vm, key);
-    vm.$get.$accessorType = 'get';
+    vm.$get[accessorType] = 'get';
+    
+    vm.$multiGet = (...args) => multiGet(vm, args);
+    vm.$multiGet[accessorType] = 'get';
     
     vm.$set = (...args) => setter(vm, ...args);
-    vm.$set.$accessorType = 'set';
+    vm.$set[accessorType] = 'set';
     
     vm.$dispatch = vm.$dispatch || vm.parent.$dispatch;
     
@@ -575,13 +555,13 @@ const dispatcher = (vc, event, payload) => {
 
 const accessorizeViewController = (vm, vc) => {
     vc.$get = (...args) => multiGet(vm, args);
-    vc.$get.$accessorType = 'get';
+    vc.$get[accessorType] = 'get';
     
     vc.$set = (...args) => multiSet(vm, ...args);
-    vc.$set.$accessorType = 'set';
+    vc.$set[accessorType] = 'set';
     
     vc.$dispatch = (event, ...payload) => dispatcher(vc, event, payload);
-    vc.$dispatch.$accessorType = 'dispatch';
+    vc.$dispatch[accessorType] = 'dispatch';
     
     return vc;
 };
@@ -744,7 +724,15 @@ class ViewModelState extends React.Component {
     static getDerivedStateFromProps(props, localState) {
         const { vm, applyState } = props;
         
-        return applyState ? applyState(localState, vm.$get) : null;
+        if (applyState) {
+            const result = applyState(localState, vm.$multiGet);
+            
+            // If applyState() does not return a value, result will be `undefined`.
+            // React complains about this, loudly; returning `null` instead is ok.
+            return result == null ? null : result;
+        }
+        
+        return null;
     }
     
     constructor(props) {
@@ -755,13 +743,12 @@ class ViewModelState extends React.Component {
         
         let { initialState, protectedKeys, vm } = props;
         
-        // eslint-disable-next-line no-eq-null
         if (protectedKeys != null) {
             this.protectedKeys = normalizeProtectedKeys(protectedKeys);
         }
         
         if (typeof initialState === 'function') {
-            initialState = initialState(vm.$retrieve);
+            initialState = initialState(vm.$multiGet);
         }
         
         if (process.env.NODE_ENV !== 'production') {
@@ -785,7 +772,7 @@ class ViewModelState extends React.Component {
         }
         
         const setter = value => vm.$set(key, value);
-        setter.$accessorType = 'set';
+        setter[accessorType] = 'set';
         
         return setter;
     }
@@ -807,16 +794,14 @@ class ViewModelState extends React.Component {
         const { vm, children } = me.props;
         
         vm.state = chain(vm.parent.state, me.state);
-        
-        const store = { ...vm.data, ...me.state };
-        vm.store = chain(vm.parent.store, store);
+        vm.store = chain(vm.parent.store, vm.data, me.state);
         
         vm.protectedKeys = me.protectedKeys;
         vm.getKeySetter = me.getKeySetter;
         vm.setState = me.setViewModelState;
         
         const innerViewModel = (
-            React.createElement(ViewModelContext.Provider, { value: { vm }, __self: this, __source: {fileName: _jsxFileName$1, lineNumber: 127}}
+            React.createElement(ViewModelContext.Provider, { value: { vm }, __self: this, __source: {fileName: _jsxFileName$1, lineNumber: 132}}
                 ,  children 
             )
         );
@@ -825,7 +810,7 @@ class ViewModelState extends React.Component {
         
         return !controller
             ? innerViewModel
-            : React.createElement(ViewController, { ...controller, $viewModel: vm, ownerId: vm.id, __self: this, __source: {fileName: _jsxFileName$1, lineNumber: 136}}
+            : React.createElement(ViewController, { ...controller, $viewModel: vm, ownerId: vm.id, __self: this, __source: {fileName: _jsxFileName$1, lineNumber: 141}}
                     ,  innerViewModel 
               );
     }
@@ -837,11 +822,14 @@ class ViewModelState extends React.Component {
  *  protectedKeys, children
  */
 const ViewModel = props => (
-    React.createElement(ViewModelContext.Consumer, {__self: null, __source: {fileName: _jsxFileName$1, lineNumber: 148}}
+    React.createElement(ViewModelContext.Consumer, {__self: null, __source: {fileName: _jsxFileName$1, lineNumber: 153}}
         ,  ({ vm: parent }) => {
             const formulas = chain(parent.formulas, props.formulas);
             const data = chain(parent.data, props.data);
             const state = chain(parent.state, {});
+            
+            // At this point, our store contains only data
+            const store = chain(parent.store, props.data);
             
             const vm = accessorizeViewModel({
                 id: 'id' in props ? props.id : getId('ViewModel'),
@@ -850,9 +838,9 @@ const ViewModel = props => (
                 data,
                 state,
                 // This property gets overwritten by ViewModelState.render(); the purpose
-                // of having it here is to provide initial empty state object for
-                // applyState()
-                store: { ...data, ...state },
+                // of having it here is to provide initial store object for applyState()
+                // and initialState()
+                store,
             });
             
             return (
@@ -861,7 +849,7 @@ const ViewModel = props => (
                     initialState: props.initialState,
                     applyState: props.applyState,
                     observeStateChange: props.observeStateChange,
-                    protectedKeys: props.protectedKeys, __self: null, __source: {fileName: _jsxFileName$1, lineNumber: 167}}
+                    protectedKeys: props.protectedKeys, __self: null, __source: {fileName: _jsxFileName$1, lineNumber: 175}}
                     ,  props.children 
                 )
             );
