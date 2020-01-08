@@ -77,39 +77,43 @@ and passes the requested values and setters into that function's arguments.
 Bindings are defined as mapping of _keys_ from the `ViewModel` store to _props_
 injected into Component's props (or `Bind` child function arguments), e.g.:
 
-    import { withBindings } from 'statium';
+```javascript
+import { withBindings } from 'statium';
 
-    const Component = ({ foo, onChangeFoo, bar }) => (
-        { /*
-            Do something to render foo and bar values;
-            call onChangeFoo(newFoo) whenever foo needs to be updated
-        /* }
-    );
+const Component = ({ foo, onChangeFoo, bar }) => (
+    { /*
+        Do something to render foo and bar values;
+        call onChangeFoo(newFoo) whenever foo needs to be updated
+    /* }
+);
 
-    const BoundComponent = withBindings({
-        // Map `value` component prop to `foo` key in ViewModel store, and request
-        // a setter function for it (named `setFoo` by default but we rename it here).
-        // Both `value` and `onChangeFoo` are injected into Component props at rendering.
-        value: {
-            key: 'foo',
-            publish: true,
-            setterName: 'onChangeFoo',
-        },
-        bar: 'barKey',
-    })(MyComponent);
+const BoundComponent = withBindings({
+    // Map `value` component prop to `foo` key in ViewModel store, and request
+    // a setter function for it (named `setFoo` by default but we rename it here).
+    // Both `value` and `onChangeFoo` are injected into Component props at rendering.
+    value: {
+        key: 'foo',
+        publish: true,
+        setterName: 'onChangeFoo',
+    },
+    bar: 'barKey',
+})(MyComponent);
+```
 
 `useBindings` hook works similarly but the calling convention is a little different
 by default, to accommodate for React Hooks stylistic:
 
-    import { useBindings } from 'statium';
+```javascript
+import { useBindings } from 'statium';
 
-    const Component = () => {
-        // Binding definition ['bar', true] is a shortcut for { key: 'bar', publish: true }.
-        // The [value, setterFn] tuple is returned in an array, a la `useState` React hook.
-        const [foo, [bar, setBar]] = useBindings('foo, ['bar', true]);
-    
-        ...
-    };
+const Component = () => {
+    // Binding definition ['bar', true] is a shortcut for { key: 'bar', publish: true }.
+    // The [value, setterFn] tuple is returned in an array, a la `useState` React hook.
+    const [foo, [bar, setBar]] = useBindings('foo, ['bar', true]);
+
+    ...
+};
+```
 
 It is also possible to call [`useBindings`](docs/useBindings.md) with binding definitions
 in an object, the same way as [`withBindings`](docs/withBindings.md), and
@@ -129,11 +133,13 @@ service, or `history` and `match` props if you are using `react-router`, or simp
 a constant defined somewhere that you need to spread to child components. `ViewModel`
 makes this easy by passing an object with key/value pairs in the `data` prop:
 
-    const Container = ({ foo, bar }) => (
-        <ViewModel data={{ foo, bar }}>
-            ... // `foo` and `bar` values are now available for binding downstream
-        </ViewModel>
-    );
+```javascript
+const Container = ({ foo, bar }) => (
+    <ViewModel data={{ foo, bar }}>
+        ... // `foo` and `bar` values are now available for binding downstream
+    </ViewModel>
+);
+```
 
 In fact, the `ViewModel` _store_ that we discussed above consists of both _data_
 and _state_ parts, combined thusly:
@@ -152,19 +158,21 @@ checking form validity after a value change, extracting a specific property out 
 an object contained in the state, or combining strings to produce a user greeting.
 This can be easily solved by using `ViewModel` _formulas_:
 
-    const Component = () => (
-        <ViewModel initialState={{ first: 'Foo', last: 'Barootsky' }}
-            formulas={{
-                fullName: $get => $get('first') + ' ' + $get('last'),
-            }}>
-        
-            <Bind props="fullName">
-                { ({ fullName }) => (
-                    <div>Hello, {fullName}!</div>
-                )}
-            </Bind>
-        </ViewModel>
-    );
+```javascript
+const Component = () => (
+    <ViewModel initialState={{ first: 'Foo', last: 'Barootsky' }}
+        formulas={{
+            fullName: $get => $get('first') + ' ' + $get('last'),
+        }}>
+    
+        <Bind props="fullName">
+            { ({ fullName }) => (
+                <div>Hello, {fullName}!</div>
+            )}
+        </Bind>
+    </ViewModel>
+);
+```
 
 A formula is simply a function that receives _getter_ function as its first and only
 argument. Calling the getter with the desired key names will return the values -
@@ -173,15 +181,17 @@ which can invoke other formulas! - and the formula should itself return the comp
 Another way to compute values is to use _inline formulas_ defined in bindings, which
 allows using local variables or do things specific to some Component:
 
-    const baz = 42;
+```javascript
+const baz = 42;
 
-    const Component = ({ foo }) => (
-        ...
-    );
+const Component = ({ foo }) => (
+    ...
+);
 
-    const BoundComponent = withBindings({
-        foo: $get => $get('bar') + baz;
-    })(Component);
+const BoundComponent = withBindings({
+    foo: $get => $get('bar') + baz;
+})(Component);
+```
 
 See more in [Formulas](docs/formulas.md).
 
@@ -195,28 +205,30 @@ upon any change to the state of owner `ViewModel`.
 
 Example:
 
-    import ViewModel, { Bind} from 'statium';
-    import stateToUri from 'urlito';
-    import Table from 'some-ui-framework';
-    
-    // Defaults are assumed if URL param is missing
-    const defaultState = {
-        sort: 'asc',
-    };
-    
-    const [getStateFromUri, setStateToUri] = stateToUri(defaultState);
-    
-    const SortedTable = () => (
-        <ViewModel initialState={getStateFromUri} observeStateChange={setStateToUri}>
-            <Bind props={[{ key: 'sort', publish: true }]}>
-                { ({ sort, setSort }) => (
-                    <Table sortOrder={sort} onSortOrderChange={setSort}>
-                        ...
-                    </Table>
-                )}
-            </Bind>
-        </ViewModel>
-    );
+```javascript
+import ViewModel, { Bind} from 'statium';
+import stateToUri from 'urlito';
+import Table from 'some-ui-framework';
+
+// Defaults are assumed if URL param is missing
+const defaultState = {
+    sort: 'asc',
+};
+
+const [getStateFromUri, setStateToUri] = stateToUri(defaultState);
+
+const SortedTable = () => (
+    <ViewModel initialState={getStateFromUri} observeStateChange={setStateToUri}>
+        <Bind props={[{ key: 'sort', publish: true }]}>
+            { ({ sort, setSort }) => (
+                <Table sortOrder={sort} onSortOrderChange={setSort}>
+                    ...
+                </Table>
+            )}
+        </Bind>
+    </ViewModel>
+);
+```
 
 When provided as a function, `initialState` will be called at `ViewModel` construction
 time, and is expected to _synchronously_ return a valid object with default state. 
@@ -236,40 +248,42 @@ on every change, etc.
 
 The `applyState` function allows doing exactly this:
 
-    const validator = state => {
-        const { password1, password2 } = state;
-        
-        if (password1 !== password2) {
-            return {
-                ...state,
-                errors: ['Passwords are not matching!'],
-            };
-        }
-    };
+```javascript
+const validator = state => {
+    const { password1, password2 } = state;
     
-    const Component = () => (
-        <ViewModel initialState={{ password1: '', password2: '' }}, applyState={validator}>
-            <Bind props={[
-                { key: 'password1', publish: true },
-                { key: 'password2', publish: true },
-                'errors',
-            ]}>
-                { ({ password1, setPassword1, password2, setPassword2 }) => (
-                    <Form>
-                        <PasswordInput label="Enter password"
-                            value={password1}
-                            onChange={setPassword1} />
-                        
-                        <PasswordInput label="Confirm password"
-                            value={password2}
-                            onChange={setPassword2} />
-                        
-                        { errors.map(error => <div>{error}</div>) }
-                    </Form>
-                )}
-            </Bind>
-        </ViewModel>
-    );
+    if (password1 !== password2) {
+        return {
+            ...state,
+            errors: ['Passwords are not matching!'],
+        };
+    }
+};
+
+const Component = () => (
+    <ViewModel initialState={{ password1: '', password2: '' }}, applyState={validator}>
+        <Bind props={[
+            { key: 'password1', publish: true },
+            { key: 'password2', publish: true },
+            'errors',
+        ]}>
+            { ({ password1, setPassword1, password2, setPassword2 }) => (
+                <Form>
+                    <PasswordInput label="Enter password"
+                        value={password1}
+                        onChange={setPassword1} />
+                    
+                    <PasswordInput label="Confirm password"
+                        value={password2}
+                        onChange={setPassword2} />
+                    
+                    { errors.map(error => <div>{error}</div>) }
+                </Form>
+            )}
+        </Bind>
+    </ViewModel>
+);
+```
 
 See more in [ViewModel documentation](docs/ViewModel.md).
 
@@ -294,58 +308,60 @@ for the protected key.
 
 Example:
 
-    import ViewModel, { Bind } from 'statium';
-    import doLogin from 'some-auth-library';
+```javascript
+import ViewModel, { Bind } from 'statium';
+import doLogin from 'some-auth-library';
+
+import LoadingScreen from './LoadingScreen';
+import LoginForm from './LoginForm';
+import AfterLogin from './AfterLogin';
+
+const login = async ({ $set }, info) => {
+    const { username, password } = info;
     
-    import LoadingScreen from './LoadingScreen';
-    import LoginForm from './LoginForm';
-    import AfterLogin from './AfterLogin';
+    // Setters return a Promise that is resolved when
+    // ViewModel state has finished updating.
+    await $set({ loading: true });
     
-    const login = async ({ $set }, info) => {
-        const { username, password } = info;
-        
-        // Setters return a Promise that is resolved when
-        // ViewModel state has finished updating.
-        await $set({ loading: true });
-        
-        // Try to authenticate in some way
-        const authenticatedUser = await doLogin(username, password);
-        
-        if (authenticatedUser) {
-            $set({
-                loading: false,
-                user: authenticatedUser,
-            });
-        }
-    };
+    // Try to authenticate in some way
+    const authenticatedUser = await doLogin(username, password);
     
-    const Application = () => (
-        <ViewModel initialState={{ user: null, loading: false }}
-            protectedKeys="user"
-            controller={{
-                handlers: {
-                    setUser: login,
-                },
-            }}>
-            <Bind props={['loading', ["user", true]]}>
-                { ({ loading, user, setUser }) => {
-                    if (user) {
-                        return <AfterLogin user={user} />
-                    }
-                    else if (loading) {
-                        return <LoadingScreen />
-                    }
-                    else {
-                        return (
-                            <LoginForm onClick={
-                                ({ username, password }) => setUser({ username, password })
-                            } />
-                        );
-                    }
-                }}
-            </Bind>
-        </ViewModel>
-    );
+    if (authenticatedUser) {
+        $set({
+            loading: false,
+            user: authenticatedUser,
+        });
+    }
+};
+
+const Application = () => (
+    <ViewModel initialState={{ user: null, loading: false }}
+        protectedKeys="user"
+        controller={{
+            handlers: {
+                setUser: login,
+            },
+        }}>
+        <Bind props={['loading', ["user", true]]}>
+            { ({ loading, user, setUser }) => {
+                if (user) {
+                    return <AfterLogin user={user} />
+                }
+                else if (loading) {
+                    return <LoadingScreen />
+                }
+                else {
+                    return (
+                        <LoginForm onClick={
+                            ({ username, password }) => setUser({ username, password })
+                        } />
+                    );
+                }
+            }}
+        </Bind>
+    </ViewModel>
+);
+```
 
 See more in [ViewModel documentation](docs/ViewModel.md) and
 [ViewController documentation](docs/ViewController.md).
@@ -371,43 +387,47 @@ way too complex to fit into one simple function.
 
 Not so in a `ViewController` handler, it is still easy to read:
 
-    const loadSomething = async ({ $get, $set }) => {
-        const [data] = $get('data');
+```javascript
+const loadSomething = async ({ $get, $set }) => {
+    const [data] = $get('data');
+    
+    if (isSomethingMissing(data)) {
+        await $set({ loading: true });
+        const missingPiece = await loadSomeMore(data);
         
-        if (isSomethingMissing(data)) {
-            await $set({ loading: true });
-            const missingPiece = await loadSomeMore(data);
-            
-            const result = await transformPieces(data, missingPiece);
-            
-            $set({
-                loading: false,
-                data: result,
-            });
-        }
-    };
+        const result = await transformPieces(data, missingPiece);
+        
+        $set({
+            loading: false,
+            data: result,
+        });
+    }
+};
+```
 
 This way it is also easy to progressively load your data:
 
-    const loadUserPosts = async ({ $get, $set }) => {
-        let [user, posts, comments] = $get('user', 'posts', 'comments');
+```javascript
+const loadUserPosts = async ({ $get, $set }) => {
+    let [user, posts, comments] = $get('user', 'posts', 'comments');
+    
+    if (!posts) {
+        await $set({ loading: true });
         
-        if (!posts) {
-            await $set({ loading: true });
-            
-            posts = await loadPosts(user);
-            
-            await $set({ loading: false, posts });
-        }
+        posts = await loadPosts(user);
         
-        if (!comments) {
-            await $set({ loading: true });
-            
-            comments = await loadComments(user, posts);
-            
-            await $set({ loading: false, comments });
-        }
-    };
+        await $set({ loading: false, posts });
+    }
+    
+    if (!comments) {
+        await $set({ loading: true });
+        
+        comments = await loadComments(user, posts);
+        
+        await $set({ loading: false, comments });
+    }
+};
+```
 
 ### ViewController events
 
