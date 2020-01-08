@@ -1,6 +1,6 @@
 {
   "name": "statium",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Pragmatic state management for React applications",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -69,8 +69,5 @@
   },
   "repository": "git@github.com:riptano/statium.git",
   "author": "Alex Tokarev",
-  "license": "UNLICENSED",
-  "publishConfig": {
-    "registry": "https://repo.datastax.com/api/npm/npm-local/"
-  }
+  "license": "Apache 2.0"
 }
