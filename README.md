@@ -38,6 +38,10 @@ const PasswordForm = () => (
 );
 ```
 
+## Installation
+
+`yarn add statium`
+
 ## Introduction
 
 The idea behind Statium is to keep simple things simple and make hard things manageable.
