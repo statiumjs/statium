@@ -7,8 +7,6 @@ import pkg from './package.json';
 const config = {
     input: 'src/index.js',
     
-    // self-serve-ui project already includes React and Lodash as dependencies,
-    // no reason to bundle these with Statium
     external: [
         'react',
         'lodash.get',

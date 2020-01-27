@@ -24,11 +24,11 @@ const PasswordForm = () => (
                 <Form>
                     <InputField label="Enter password"
                         value={password1}
-                        onChange={setPassword1} />
+                        onChange={e => { setPassword1(e.target.value); }} />
             
                     <InputField label="Confirm password"
                         value={password2}
-                        onChange={setPassword2} />
+                        onChange={e => { setPassword2(e.target.value); }} />
             
                     { errors.length > 0 && errors.map(error => <div>{error}</div>) }
                 </Form>

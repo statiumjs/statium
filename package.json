@@ -20,8 +20,10 @@
     "lodash.get": "^4.4.2",
     "lodash.has": "^4.5.2",
     "lodash.set": "^4.3.2",
-    "lodash.upperfirst": "^4.3.1",
-    "react": "^16.9.0"
+    "lodash.upperfirst": "^4.3.1"
+  },
+  "peerDependencies": {
+    "react": "^16.4.0"
   },
   "devDependencies": {
     "@babel/plugin-transform-runtime": "^7.6.2",
