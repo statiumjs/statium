@@ -113,7 +113,7 @@ import { useBindings } from 'statium';
 const Component = () => {
     // Binding definition ['bar', true] is a shortcut for { key: 'bar', publish: true }.
     // The [value, setterFn] tuple is returned in an array, a la `useState` React hook.
-    const [foo, [bar, setBar]] = useBindings('foo, ['bar', true]);
+    const [foo, [bar, setBar]] = useBindings('foo', ['bar', true]);
 
     ...
 };
