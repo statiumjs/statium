@@ -1,6 +1,7 @@
 import React from 'react';
 import { mount } from 'enzyme';
-import sleep from './sleep';
+import sleep from './sleep.js';
+import { bork, unbork } from './console.js';
 
 import ViewModel, { Bind, ViewController, useController } from '../src';
 
@@ -706,6 +707,182 @@ describe("ViewController", () => {
                     // eslint-disable-next-line promise/no-callback-in-promise
                     done();
                 });
+        });
+    });
+
+    describe("error handling", () => {
+        beforeAll(() => {
+            bork('error');
+        });
+        
+        afterAll(() => {
+            unbork('error');
+        });
+        
+        describe("default", () => {
+            class ErrorBoundary extends React.Component {
+                constructor(props) {
+                    super(props);
+                    this.state = { error: null };
+                }
+
+                componentDidCatch(error) {
+                    this.setState({ error });
+                }
+
+                render() {
+                    if (this.state.error) {
+                        return (
+                            <div>
+                                { String(this.state.error) }
+                            </div>
+                        );
+                    }
+
+                    return this.props.children;
+                }
+            }
+        
+            test("exception thrown in initializer should be rethrown in ViewControler render", async () => {
+                const tree = mount(
+                    <ErrorBoundary>
+                        <ViewController initialize={() => {
+                                throw new Error("futze!");
+                            }}>
+                            
+                            <div>
+                                blugg!
+                            </div>
+                        </ViewController>
+                    </ErrorBoundary>
+                );
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <ViewController
+                        initialize={[Function]}
+                      >
+                        <div>
+                          blugg!
+                        </div>
+                      </ViewController>
+                    </ErrorBoundary>
+                `);
+                
+                // Give it enough cycles to re-render
+                await sleep(10);
+                tree.update();
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <div>
+                        Error: futze!
+                      </div>
+                    </ErrorBoundary>
+                `);
+            });
+            
+            test("exception thrown in invalidator should be rethrown in ViewControler render", async () => {
+                const tree = mount(
+                    <ErrorBoundary>
+                        <ViewController invalidate={() => {
+                                throw new Error("mpogh...");
+                            }}>
+                            
+                            <div>
+                                krunkle?
+                            </div>
+                        </ViewController>
+                    </ErrorBoundary>
+                );
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <ViewController
+                        invalidate={[Function]}
+                      >
+                        <div>
+                          krunkle?
+                        </div>
+                      </ViewController>
+                    </ErrorBoundary>
+                `);
+                
+                // This is a bit of a hack but we need to force-rerender the controller
+                tree.find('ViewController').setState({ error: false });
+                
+                await sleep(10);
+                tree.update();
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <div>
+                        Error: mpogh...
+                      </div>
+                    </ErrorBoundary>
+                `);
+            });
+            
+            test("exception thrown in event handler should be rethrown in render", async () => {
+                let dispatch;
+                
+                const tree = mount(
+                    <ErrorBoundary>
+                        <ViewController handlers={{
+                                verr: () => {
+                                    throw new Error('qopp');
+                                },
+                            }}>
+                            
+                            <Bind controller>
+                            { (_, { $dispatch }) => {
+                                dispatch = $dispatch;
+                                
+                                return (
+                                    <div>
+                                        nguff
+                                    </div>
+                                );
+                            }}
+                            </Bind>
+                        </ViewController>
+                    </ErrorBoundary>
+                );
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <ViewController
+                        handlers={
+                          Object {
+                            "verr": [Function],
+                          }
+                        }
+                      >
+                        <Bind
+                          controller={true}
+                        >
+                          <div>
+                            nguff
+                          </div>
+                        </Bind>
+                      </ViewController>
+                    </ErrorBoundary>
+                `);
+                
+                dispatch('verr');
+                
+                await sleep(10);
+                
+                tree.update();
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <div>
+                        Error: qopp
+                      </div>
+                    </ErrorBoundary>
+                `);
+            });
         });
     });
 });
