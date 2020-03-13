@@ -1,9 +1,14 @@
+import ReactDOM from 'react-dom';
 import loGet from 'lodash.get';
 
 import { validKey, getKeys, getKeyPrefix, findOwner } from './util';
 import { normalizeBindings, mapProps, mapPropsToArray } from './bindings';
 
 export const accessorType = Symbol('accessorType');
+
+const batch_updates = typeof ReactDOM.unstable_batchedUpdates === 'function'
+    ? ReactDOM.unstable_batchedUpdates
+    : fn => fn();
 
 const retrieve = (vm, key) =>
     vm.formulas[key] ? vm.formulas[key](vm.$retrieve) : vm.$get(key);
@@ -119,18 +124,20 @@ export const multiSet = ({ vm, forceKey }, key, value) => {
     
     const promises = [];
     
-    for (const item of sortedQueue) {
-        const { owner, values, protectedValues } = item;
+    batch_updates(() => {
+        for (const item of sortedQueue) {
+            const { owner, values, protectedValues } = item;
         
-        for (const protectedKey of getKeys(protectedValues)) {
-            const protectedValue = protectedValues[protectedKey];
-            const event = owner.protectedKeys[protectedKey];
+            for (const protectedKey of getKeys(protectedValues)) {
+                const protectedValue = protectedValues[protectedKey];
+                const event = owner.protectedKeys[protectedKey];
             
-            promises.push(owner.$protectedDispatch(protectedKey, event, protectedValue));
-        }
+                promises.push(owner.$protectedDispatch(protectedKey, event, protectedValue));
+            }
         
-        promises.push(owner.setState(values));
-    }
+            promises.push(owner.setState(values));
+        }
+    });
     
     return Promise.all(promises);
 };
