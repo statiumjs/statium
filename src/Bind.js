@@ -6,7 +6,7 @@ import { expose } from './ViewController';
 
 // Yes there's a prop named "props". Seemed the most apt name here ¯\_(ツ)_/¯
 export const Bind = ({ props, controller, children }) => {
-    const bindings = normalizeBindings(props);
+    const bindings = normalizeBindings(props, false);
     
     return (
         <ViewModelContext.Consumer>

@@ -4,7 +4,7 @@ import { ViewModelContext } from './context';
 import { normalizeBindings, mapProps } from './bindings';
 
 export const withBindings = (...boundProps) => Component => {
-    const bindings = normalizeBindings(boundProps);
+    const bindings = normalizeBindings(boundProps, true);
     
     // Bound props come *last*, which bears the possibility of clobbering similar named
     // props passed to component from elsewhere. This tradeoff, however, is much better

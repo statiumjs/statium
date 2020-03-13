@@ -1,8 +1,20 @@
 import { getKeys, validKey, setterNameForKey } from './util';
 
-export const normalizeBindings = (bindings = {}) => {
+const isArrayForm = binding =>
+    Array.isArray(binding) && binding.length === 2 && validKey(binding[0]) &&
+    typeof binding[1] === 'boolean';
+
+export const normalizeBindings = (bindings = {}, variadic) => {
     if (!bindings || !(typeof bindings === 'object' || validKey(bindings))) {
         throw new Error(`Invalid bindings: ${JSON.stringify(bindings)}`);
+    }
+    
+    // Single binding that comes from variadic arguments needs to be unwrapped, _unless_
+    // it is an array binding form, or a single key binding.
+    if (variadic && Array.isArray(bindings) && bindings.length === 1 && !validKey(bindings[0]) &&
+        !isArrayForm(bindings[0]))
+    {
+        bindings = bindings[0];
     }
     
     if (validKey(bindings)) {
