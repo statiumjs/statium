@@ -58,7 +58,7 @@ export const multiGet = (vm, keys) => {
         }
     }
     
-    const bindings = normalizeBindings(keys);
+    const bindings = normalizeBindings(keys, true);
     
     return objectSyntax ? mapProps(vm, bindings) : mapPropsToArray(vm, bindings);
 };
