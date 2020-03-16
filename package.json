@@ -1,6 +1,6 @@
 {
   "name": "statium",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Pragmatic state management for React applications",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -11,7 +11,8 @@
     "lint": "eslint src test",
     "test": "jest",
     "prebuild": "yarn run lint",
-    "pretest": "yarn run build"
+    "pretest": "yarn run build",
+    "prepare": "yarn run build"
   },
   "dependencies": {
     "core-js": "^3.4.8",
