@@ -70,6 +70,8 @@ export class ViewController extends React.Component {
         this.timerMap = new Map();
         this.defer = this.defer.bind(this);
         this.runRenderHandlers = this.runRenderHandlers.bind(this);
+
+        this.state = { error: null };
     }
     
     componentWillUnmount() {
@@ -95,8 +97,10 @@ export class ViewController extends React.Component {
                     
                     resolve(result);
                 }
-                catch (e) {
-                    reject(e);
+                catch (error) {
+                    this.setState({ error }, () => {
+                        reject(error);
+                    });
                 }
             });
         });
@@ -143,6 +147,12 @@ export class ViewController extends React.Component {
     }
     
     render() {
+        const { error } = this.state;
+
+        if (error) {
+            throw error;
+        }
+
         const me = this;
         
         const { id, $viewModel, handlers, children } = me.props;
