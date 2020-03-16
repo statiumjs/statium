@@ -383,10 +383,7 @@ describe("ViewController", () => {
             //
             expect(have).toEqual([
                 { gramps: 'aflo' },
-                { parent: 'seap' },
-                { child: 'argu' },
                 { parent: 'enok' },
-                { child: 'argu' },
                 { child: 'hrum' },
             ]);
         });
