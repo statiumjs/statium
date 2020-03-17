@@ -28,6 +28,8 @@ const dispatcher = ({ vc, protectedKey, event, payload }) => {
                 ...vc,
                 $set: (...args) => vc.$protectedSet(protectedKey, ...args),
             };
+            
+            vc.$set[accessorType] = 'protectedSet';
         }
         
         return vc.defer(handler, vc, ...payload);

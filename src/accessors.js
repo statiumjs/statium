@@ -38,7 +38,7 @@ const setter = (vm, key, value) => {
     if (owner.protectedKeys && key in owner.protectedKeys) {
         const event = owner.protectedKeys[key];
         
-        return owner.$dispatch(event, value);
+        return owner.$protectedDispatch(key, event, value);
     }
     else {
         return owner.setState({ [key]: value });

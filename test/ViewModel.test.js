@@ -577,6 +577,47 @@ describe("ViewModel component", () => {
                 
                 expect(result).toBe("gurkle");
             });
+            
+            test("setting a protected key value through ViewModel setter should expose " +
+                 "protected $set to handler and avoid extra invocations", async () =>
+            {
+                let vmSetter, vcSetter, value;
+                
+                const mockSetter = jest.fn(({ $set }, dphun) => {
+                    vcSetter = $set;
+                    
+                    return $set('dphun', dphun);
+                });
+                
+                mount(
+                    <ViewModel initialState={{ dphun: "smenk" }}
+                        protectedKeys="dphun"
+                        controller={{
+                            handlers: {
+                                setDphun: mockSetter,
+                            },
+                        }}>
+                        
+                        <Bind props={[["dphun", true]]}>
+                        { ({ dphun, setDphun }) => {
+                            value = dphun;
+                            vmSetter = setDphun;
+                            
+                            return null;
+                        }}
+                        </Bind>
+                    </ViewModel>
+                );
+                
+                expect(value).toBe("smenk");
+                
+                vmSetter("qponk");
+                
+                await sleep(100);
+                
+                expect(vcSetter[accessorType]).toBe("protectedSet");
+                expect(mockSetter.mock.calls).toHaveLength(1);
+            });
         });
     });
 });
