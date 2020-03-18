@@ -235,7 +235,7 @@ describe("accessors", () => {
                 );
                 
                 expect(typeof getter).toBe('function');
-                expect(getter[accessorType]).toBe('retrieve');
+                expect(getter[accessorType]).toBe('get');
             });
             
             test("formula execution result should be passed as bound value", () => {
@@ -308,6 +308,24 @@ describe("accessors", () => {
                     </ViewModel>
                 );
             
+                expect(tester).toHaveBeenCalled();
+            });
+
+            test("formula should be able to retrieve multiple values at once", () => {
+                const data = { edum: "snuckle", wepp: "cicum" };
+                const tester = valueTester({ ghun: ["snuckle", "cicum"] });
+
+                mount(
+                    <ViewModel data={data}
+                        formulas={{
+                            ghun: $get => $get("edum", "wepp"),
+                        }}>
+                        <Bind props="ghun">
+                            {tester}
+                        </Bind>
+                    </ViewModel>
+                );
+
                 expect(tester).toHaveBeenCalled();
             });
         });

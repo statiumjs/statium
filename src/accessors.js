@@ -11,7 +11,7 @@ const batch_updates = typeof ReactDOM.unstable_batchedUpdates === 'function'
     : fn => fn();
 
 const retrieve = (vm, key) =>
-    vm.formulas[key] ? vm.formulas[key](vm.$retrieve) : vm.$get(key);
+    vm.formulas[key] ? vm.formulas[key](vm.$multiGet) : vm.$get(key);
 
 const getter = (vm, key) => loGet(vm.store, key);
 
