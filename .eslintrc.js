@@ -12,7 +12,6 @@ module.exports = {
     },
 
     "settings": {
-//         "import/resolver": "webpack",
         "react": {
            "version": "detect"
         }
@@ -34,7 +33,6 @@ module.exports = {
     ],
 
     "extends": [
-        "eslint-config-prettier",
         "eslint:recommended",
         "plugin:import/errors",
         "plugin:jest/recommended",

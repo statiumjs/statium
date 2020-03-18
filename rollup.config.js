@@ -9,11 +9,11 @@ const config = {
     
     external: [
         'react',
+        'react-dom',
         'lodash.get',
         'lodash.set',
         'lodash.has',
         'lodash.clone',
-        'lodash.defer',
         'lodash.upperfirst',
     ],
     
@@ -36,9 +36,11 @@ export default [{
     output: [{
         file: pkg.main,
         format: 'cjs',
+        sourcemap: true,
     }, {
         file: pkg.module,
         format: 'es',
+        sourcemap: true,
     }],
     
     plugins: [
@@ -48,6 +50,10 @@ export default [{
         babel({
             exclude: ['node_modules/**'],
             runtimeHelpers: true,
+            presets: [
+                "@babel/preset-env",
+                "@babel/preset-react",
+            ],
         }),
         commonjs(),
     ],
@@ -56,6 +62,7 @@ export default [{
     
     output: [{
         file: pkg["module-es6+"],
+        // No need for source maps here, Sucrase outputs native JavaScript
         format: 'es',
     }],
     
