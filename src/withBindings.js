@@ -15,5 +15,8 @@ export const withBindings = (...boundProps) => Component => {
         </ViewModelContext.Consumer>
     );
     
+    ComponentWithBindings.displayName =
+        `withBindings(${Component.displayName || Component.name})`;
+
     return ComponentWithBindings;
 };

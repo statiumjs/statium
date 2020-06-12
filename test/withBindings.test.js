@@ -23,13 +23,13 @@ describe('withBindings HOC', () => {
         const tree = mount(<BoundComponent />);
 
         expect(tree).toMatchInlineSnapshot(`
-            <ComponentWithBindings>
+            <withBindings(Component)>
               <Component>
                 <div>
                   component
                 </div>
               </Component>
-            </ComponentWithBindings>
+            </withBindings(Component)>
         `);
     });
     
