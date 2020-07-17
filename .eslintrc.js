@@ -138,6 +138,7 @@ module.exports = {
         //
         // all react rules are on by default; turn off the ones we don't want
         "react/destructuring-assignment": "off",
+        "react/function-component-definition": "off",
 
         // Do we want this one to be an error instead? Enforces shapes instead of generic any, array, object
         "react/forbid-prop-types": "off",
