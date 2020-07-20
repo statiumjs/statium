@@ -1,6 +1,6 @@
 {
   "name": "statium",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Pragmatic state management for React applications",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
