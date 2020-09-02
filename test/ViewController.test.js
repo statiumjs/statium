@@ -103,6 +103,90 @@ describe("ViewController", () => {
             expect(blerg).toBe("plugh");
         });
     });
+
+    describe("unmount", () => {
+        let setter;
+
+        const renderVC = async unmountFn => {
+            const tree = mount(
+                <ViewModel
+                    data={{ promple: "duux" }}
+                    initialState={{ mountVC: true }}>
+                    <Bind props={[["mountVC", true]]}>
+                    { ({ mountVC, setMountVC }) => {
+                        setter = setMountVC;
+
+                        return mountVC
+                            ? <ViewController unmount={unmountFn} />
+                            : null;
+                    }}
+                    </Bind>
+                </ViewModel>
+            );
+
+            await sleep(0);
+
+            return tree;
+        };
+
+        it("should fire when ViewController is unmounted", async () => {
+            let unmounted;
+
+            const tree = await renderVC(() => { unmounted = true; });
+            
+            setter(false);
+
+            tree.update();
+            await sleep();
+
+            expect(unmounted).toBe(true);
+        });
+
+        it("should allow reading keys in unmount handler", async () => {
+            let value;
+
+            const tree = await renderVC(
+                ({ $get }) => { value = $get('promple'); }
+            );
+
+            setter(false);
+            tree.update();
+            await sleep();
+
+            expect(value).toBe("duux");
+        });
+
+        it("should not allow setting key value in unmount handler", async () => {
+            let rendered, vcSetter;
+            
+            const tree = await renderVC(
+                ({ $set }) => { rendered = true; vcSetter = $set; }
+            );
+
+            setter(false);
+            tree.update();
+            await sleep();
+
+            expect(rendered).toBe(true);
+            expect(vcSetter).toBe(undefined);
+        });
+
+        it("should not allow dispatching events in unmount handler", async () => {
+            let rendered, vcDispatch;
+            
+            const tree = await renderVC(
+                ({ $dispatch }) => { rendered = true; vcDispatch = $dispatch; }
+            );
+
+            setter(false);
+            tree.update();
+            await sleep();
+
+            expect(rendered).toBe(true);
+            expect(vcDispatch).toBe(undefined);
+        });
+    });
+
     
     describe("getters", () => {
         test("called with one string key, should return the value", () => {

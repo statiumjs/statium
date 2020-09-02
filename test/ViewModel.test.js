@@ -256,7 +256,7 @@ describe("ViewModel component", () => {
             });
         });
     });
-    
+
     describe("controller", () => {
         test("given controller config, should instantiate a ViewController", async () => {
             let value, dispatch;

@@ -77,6 +77,19 @@ export class ViewController extends React.Component {
     }
     
     componentWillUnmount() {
+        const { unmount } = this.props;
+
+        if (typeof unmount === 'function') {
+            // We do not allow dispatching events or setting key values
+            // in the unmount handler. It's read only.
+            // This is because unmount handler is executed *synchronously*,
+            // and anything writeable might lead to inconsistent state.
+            // Considering that the purpose of the unmount handler is to
+            // provide a way to clean up external resources, this makes
+            // total sense (well, at this moment).
+            unmount(expose({ $get: this.$get }));
+        }
+
         for (const timer of this.timerMap.values()) {
             clearTimeout(timer);
         }
@@ -173,6 +186,9 @@ export class ViewController extends React.Component {
                     // for corresponding protected keys.
                     vm.$dispatch = vc.$dispatch;
                     vm.$protectedDispatch = vc.$protectedDispatch;
+
+                    // ViewController needs $get to fire unmount event
+                    me.$get = vc.$get;
                     
                     // We *need* to run initialize and invalidate handlers during rendering,
                     // as opposed to a lifecycle method such as `componentDidMount`.
