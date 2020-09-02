@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ViewModelContext } from './context';
+import { Context } from './context';
 import { normalizeBindings, mapProps } from './bindings';
 
 export const withBindings = (...boundProps) => Component => {
@@ -10,9 +10,9 @@ export const withBindings = (...boundProps) => Component => {
     // props passed to component from elsewhere. This tradeoff, however, is much better
     // from debugging standpoint than the other way around.
     const ComponentWithBindings = componentProps => (
-        <ViewModelContext.Consumer>
+        <Context.Consumer>
             { ({ vm }) => <Component {...componentProps} {...mapProps(vm, bindings)} /> }
-        </ViewModelContext.Consumer>
+        </Context.Consumer>
     );
     
     ComponentWithBindings.displayName =

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ViewModelContext, ViewControllerContext } from './context';
+import { Context } from './context';
 import { normalizeBindings, mapProps } from './bindings';
 import { expose } from './ViewController';
 
@@ -9,13 +9,11 @@ export const Bind = ({ props, controller, children }) => {
     const bindings = normalizeBindings(props, false);
     
     return (
-        <ViewModelContext.Consumer>
-            { ({ vm }) => !controller
+        <Context.Consumer>
+            { ({ vm, vc }) => !controller
                 ? children(mapProps(vm, bindings))
-                : <ViewControllerContext.Consumer>
-                    { vc => children(mapProps(vm, bindings), expose(vc)) }
-                  </ViewControllerContext.Consumer>
+                : children(mapProps(vm, bindings), expose(vc))
             }
-        </ViewModelContext.Consumer>
+        </Context.Consumer>
     );
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ViewModelContext, ViewControllerContext, rootViewController } from './context';
+import { Context, rootViewController } from './context';
 import { multiGet, multiSet, accessorType } from './accessors';
 import { getId, findOwner, defer as doDefer } from './util';
 
@@ -170,48 +170,45 @@ export class ViewController extends React.Component {
 
         const me = this;
         
-        const { id, $viewModel, handlers, children } = me.props;
+        const { id, $viewModel, parentVc, handlers, children } = me.props;
         
-        const innerVC = ({ vm }) => 
-            <ViewControllerContext.Consumer>
-                { parent => {
-                    const vc = accessorizeViewController(vm, {
-                        id: id || me.id,
-                        parent,
-                        handlers,
-                        defer: me.defer,
-                    });
-                    
-                    // ViewModel needs dispatcher reference to fire events
-                    // for corresponding protected keys.
-                    vm.$dispatch = vc.$dispatch;
-                    vm.$protectedDispatch = vc.$protectedDispatch;
+        const innerVC = ({ vm, vc: parentVc }) => {
+            const vc = accessorizeViewController(vm, {
+                id: id || me.id,
+                parent: parentVc,
+                handlers,
+                defer: me.defer,
+            });
+            
+            // ViewModel needs dispatcher reference to fire events
+            // for corresponding protected keys.
+            vm.$dispatch = vc.$dispatch;
+            vm.$protectedDispatch = vc.$protectedDispatch;
 
-                    // ViewController needs $get to fire unmount event
-                    me.$get = vc.$get;
-                    
-                    // We *need* to run initialize and invalidate handlers during rendering,
-                    // as opposed to a lifecycle method such as `componentDidMount`.
-                    // The purpose of these functions is to do something that might affect
-                    // parent ViewModel state, and we need to have the `vm` ViewModel
-                    // object reference to be able to do that. `vm` comes either from
-                    // ViewModelContext, or directly injected by parent ViewModel,
-                    // but in each case that happens during rendering cycle,
-                    // not before or after.
-                    me.runRenderHandlers(vc, me.props);
-                    
-                    return (
-                        <ViewControllerContext.Provider value={vc}>
-                            { children }
-                        </ViewControllerContext.Provider>
-                    );
-                }}
-            </ViewControllerContext.Consumer>;
+            // ViewController needs $get to fire unmount event
+            me.$get = vc.$get;
+            
+            // We *need* to run initialize and invalidate handlers during rendering,
+            // as opposed to a lifecycle method such as `componentDidMount`.
+            // The purpose of these functions is to do something that might affect
+            // parent ViewModel state, and we need to have the `vm` ViewModel
+            // object reference to be able to do that. `vm` comes either from
+            // ViewModelContext, or directly injected by parent ViewModel,
+            // but in each case that happens during rendering cycle,
+            // not before or after.
+            me.runRenderHandlers(vc, me.props);
+            
+            return (
+                <Context.Provider value={{ vm, vc }}>
+                    { children }
+                </Context.Provider>
+            );
+        };
     
         return $viewModel
-            ? innerVC({ vm: $viewModel })
-            : <ViewModelContext.Consumer>
+            ? innerVC({ vm: $viewModel, vc: parentVc })
+            : <Context.Consumer>
                 { innerVC }
-              </ViewModelContext.Consumer>;
+              </Context.Consumer>;
     }
 }

@@ -1,10 +1,10 @@
 import { useContext } from 'react';
 
-import { ViewModelContext } from './context';
+import { Context } from './context';
 import { multiGet } from './accessors';
 
 export const useBindings = (..._bindings) => {
-    const { vm } = useContext(ViewModelContext);
+    const { vm } = useContext(Context);
     
     return multiGet(vm, _bindings);
 };
