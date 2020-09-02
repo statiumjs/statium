@@ -118,7 +118,7 @@ describe("ViewController", () => {
 
                         return mountVC
                             ? <ViewController unmount={unmountFn} />
-                            : null
+                            : null;
                     }}
                     </Bind>
                 </ViewModel>
@@ -132,7 +132,7 @@ describe("ViewController", () => {
         it("should fire when ViewController is unmounted", async () => {
             let unmounted;
 
-            const tree = await renderVC(() => { unmounted = true });
+            const tree = await renderVC(() => { unmounted = true; });
             
             setter(false);
 
@@ -160,7 +160,7 @@ describe("ViewController", () => {
             let rendered, vcSetter;
             
             const tree = await renderVC(
-                ({ $set }) => { rendered = true; vcSetter = $set }
+                ({ $set }) => { rendered = true; vcSetter = $set; }
             );
 
             setter(false);
@@ -175,7 +175,7 @@ describe("ViewController", () => {
             let rendered, vcDispatch;
             
             const tree = await renderVC(
-                ({ $dispatch }) => { rendered = true; vcDispatch = $dispatch }
+                ({ $dispatch }) => { rendered = true; vcDispatch = $dispatch; }
             );
 
             setter(false);
