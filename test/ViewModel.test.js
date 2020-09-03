@@ -1,6 +1,6 @@
 import React from 'react';
 import { mount } from 'enzyme';
-import sleep from './sleep';
+import sleep from './sleep.js';
 
 import ViewModel, { Bind } from '../src';
 import { accessorType } from '../src/accessors.js';
@@ -307,10 +307,11 @@ describe("ViewModel component", () => {
                 
                 expect(result).toBe("vroom");
                 expect(observer).toHaveBeenCalled();
-                expect(args).toEqual([{
+                expect(args[0]).toEqual({
                     bunz: "krunz",
                     hfou: "vroom",
-                }]);
+                });
+                expect(typeof args[1]).toBe('function');
             });
         });
     });
@@ -676,6 +677,67 @@ describe("ViewModel component", () => {
                 expect(vcSetter[accessorType]).toBe("protectedSet");
                 expect(mockSetter.mock.calls).toHaveLength(1);
             });
+        });
+    });
+
+    describe("instance methods", () => {
+        it("should expose $get", () => {
+            const tree = mount(
+                <ViewModel data={{ rupple: "busp", nuff: "qwump" }} />
+            );
+
+            const instance = tree.find('ViewModel').instance();
+
+            const [rupple, nuff] = instance.$get('rupple', 'nuff');
+
+            expect(rupple).toBe('busp');
+            expect(nuff).toBe('qwump');
+        });
+
+        it("should expose $set", async () => {
+            const tree = mount(
+                <ViewModel initialState={{ fuddle: "lutz" }}>
+                    <Bind props="fuddle">
+                    { ({ fuddle }) => (
+                        <div>
+                            { fuddle }
+                        </div>
+                    )}
+                    </Bind>
+                </ViewModel>
+            );
+
+            const instance = tree.find('ViewModel').instance();
+
+            await instance.$set('fuddle', 'zuip');
+
+            tree.update();
+            await sleep();
+
+            expect(tree.find('div')).toMatchInlineSnapshot(`
+            <div>
+              zuip
+            </div>
+            `);
+        });
+
+        it("should expose $dispatch", async () => {
+            let value;
+
+            const tree = mount(
+                <ViewModel initialState={{ hrump: "kukkle" }}
+                    controller={{
+                        handlers: {
+                            mumz: ({ $get }) => { value = $get('hrump'); },
+                        },
+                    }} />
+            );
+
+            const instance = tree.find('ViewModel').instance();
+
+            await instance.$dispatch('mumz');
+
+            expect(value).toBe('kukkle');
         });
     });
 });
