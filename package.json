@@ -11,15 +11,13 @@
     "lint": "eslint src test",
     "test": "jest",
     "prebuild": "yarn run lint",
-    "pretest": "yarn run build",
-    "prepare": "yarn run build"
+    "pretest": "yarn run build"
   },
   "dependencies": {
     "lodash.clone": "^4.5.0",
     "lodash.get": "^4.4.2",
     "lodash.has": "^4.5.2",
-    "lodash.set": "^4.3.2",
-    "lodash.upperfirst": "^4.3.1"
+    "lodash.set": "^4.3.2"
   },
   "peerDependencies": {
     "react": "^16.4.0",

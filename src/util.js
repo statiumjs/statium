@@ -1,12 +1,12 @@
-import upperFirst from 'lodash.upperfirst';
-
 let idCounter = 0;
+
+export const ucfirst = str => String(str).replace(/^(.)/, c => c.toUpperCase());
 
 export const getId = prefix => `${prefix}-${++idCounter}`;
 
 export const chain = (proto, ...sources) => Object.assign(Object.create(proto), ...sources);
 
-export const setterNameForKey = key => `set${upperFirst(key)}`;
+export const setterNameForKey = key => `set${ucfirst(key)}`;
 
 export const getKeys = object =>
     [].concat(Object.getOwnPropertySymbols(object), Object.getOwnPropertyNames(object));
@@ -23,7 +23,7 @@ export const findOwner = (object, entityName, key) => {
     for (let owner = object; owner; owner = owner.parent) {
         const entity = owner[entityName];
         
-        if (typeof entity === 'object' && entity.hasOwnProperty(key)) {
+        if (entity && typeof entity === 'object' && entity.hasOwnProperty(key)) {
             return [owner, depth];
         }
         

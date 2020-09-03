@@ -107,16 +107,9 @@ export const multiSet = ({ vm, forceKey, single }, key, value) => {
         }
     }
     
-    const sortedQueue = [...ownerMap.values()].sort((a, b) => {
-        // Shouldn't ever happen but hey...
-        if (process.env.NODE_ENV !== 'production') {
-            if (a.depth === b.depth) {
-                throw new Error(`Two owner ViewModels of equal depth?!`);
-            }
-        }
-        
-        return a.depth < b.depth ? 1 : -1;
-    });
+    const sortedQueue = [...ownerMap.values()].sort(
+        (a, b) => a.depth < b.depth ? 1 : -1
+    );
     
     const promises = [];
     
@@ -162,16 +155,29 @@ export const accessorizeViewModel = vm => {
 
 export const validateInitialState = (state, vm) => {
     if (state && typeof state === 'object' && !Array.isArray(state)) {
-        for (const key of getKeys(state)) {
-            if (key in vm.parent.state) {
-                const [owner] = getStateKeyOwner(vm, key);
-                
-                if (owner) {
-                    console.warn(
-                        `initialState for ViewModel "${vm.id}" contains key "${key}" ` +
-                        `that overrides another key with similar name provided by ` +
-                        `parent ViewModel "${owner.id}".`
-                    );
+        if (process.env.NODE_ENV !== 'production') {
+            for (const key of getKeys(state)) {
+                if (key in vm.data) {
+                    const [owner] = findOwner(vm, 'data', key);
+
+                    if (owner) {
+                        console.warn(`initialState for ViewModel "${vm.id}" ` +
+                                     `contains key "${key}" that overrides ` +
+                                     `data key with similar name provided by ` +
+                                     `ViewModel "${owner.id}".`);
+                    }
+                }
+
+                if (key in vm.parent.state) {
+                    const [owner] = getStateKeyOwner(vm, key);
+                    
+                    if (owner) {
+                        console.warn(
+                            `initialState for ViewModel "${vm.id}" contains key "${key}" ` +
+                            `that overrides another state key with similar name ` +
+                            `provided by parent ViewModel "${owner.id}".`
+                        );
+                    }
                 }
             }
         }

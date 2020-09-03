@@ -102,6 +102,34 @@ export class ViewController extends React.Component {
         this.timerMap.clear();
     }
 
+    execute(fn, vc, args, resolve, reject) {
+        const ok = result => resolve && resolve(result);
+
+        const nok = error => {
+            this.setState({ error });
+
+            // We need to reject the Promise returned from $dispatch
+            // call; it makes sense to assume that the code calling it
+            // is able (and should) handle exceptions.
+            if (reject) {
+                reject(error);
+            }
+        };
+
+        try {
+            const result = fn(expose(vc), ...args);
+
+            if (result instanceof Promise) {
+                return result.then(ok).catch(nok);
+            }
+            
+            ok(result);
+        }
+        catch (error) {
+            nok(error);
+        }
+    }
+
     deferHandler(fn, vc, ...args) {
         let timer = this.timerMap.get(fn);
         
@@ -110,22 +138,7 @@ export class ViewController extends React.Component {
             this.timerMap.delete(fn);
         }
         
-        timer = doDefer(() => {
-            const nok = error => {
-                this.setState({ error });
-            };
-
-            try {
-                const result = fn(expose(vc), ...args);
-
-                if (result instanceof Promise) {
-                    return result.catch(nok);
-                }
-            }
-            catch (error) {
-                nok(error);
-            }
-        });
+        timer = doDefer(() => { this.execute(fn, vc, args); });
 
         this.timerMap.set(fn, timer);
     }
@@ -140,29 +153,7 @@ export class ViewController extends React.Component {
         
         const promise = new Promise((resolve, reject) => {
             timer = doDefer(() => {
-                const ok = result => resolve(result);
-
-                const nok = error => {
-                    this.setState({ error });
-
-                    // We need to reject the Promise returned from $dispatch
-                    // call; it makes sense to assume that the code calling it
-                    // is able (and should) handle exceptions.
-                    reject(error);
-                };
-
-                try {
-                    const result = fn(expose(vc), ...args);
-
-                    if (result instanceof Promise) {
-                        return result.then(ok).catch(nok);
-                    }
-                    
-                    ok(result);
-                }
-                catch (error) {
-                    nok(error);
-                }
+                this.execute(fn, vc, args, resolve, reject);
             });
         });
         
@@ -188,7 +179,7 @@ export class ViewController extends React.Component {
                         me.$initialized = true;
                         delete me.$initializeWrapper;
                         
-                        initialize(...args);
+                        return initialize(...args);
                     });
                 
                 // We have to defer executing the function because setting state

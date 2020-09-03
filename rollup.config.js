@@ -14,7 +14,6 @@ const config = {
         'lodash.set',
         'lodash.has',
         'lodash.clone',
-        'lodash.upperfirst',
     ],
     
     context: null,

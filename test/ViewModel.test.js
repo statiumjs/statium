@@ -23,7 +23,7 @@ describe("ViewModel component", () => {
     
     describe("data", () => {
         describe("own", () => {
-            test("ViewModel should allow binding to own data", () => {
+            it("should allow binding to own data", () => {
                 const data = {
                     foo: 'bar'
                 };
@@ -45,7 +45,7 @@ describe("ViewModel component", () => {
         });
         
         describe("hierarchical", () => {
-            test("ViewModel should allow binding to inherited data", () => {
+            it("should allow binding to inherited data", () => {
                 const tester = valueTester({
                     bar: 'baz',
                     qux: 'moof',
@@ -72,7 +72,7 @@ describe("ViewModel component", () => {
     
     describe("state", () => {
         describe("initializing", () => {
-            test("ViewModel should allow initializing state with an object", () => {
+            it("should allow initializing state with an object", () => {
                 const tester = valueTester({ blerg: 'knurf' });
                 
                 mount(
@@ -88,7 +88,7 @@ describe("ViewModel component", () => {
                 expect(tester).toHaveBeenCalled();
             });
             
-            test("ViewModel should allow initializing state with a function", () => {
+            it("should allow initializing state with a function", () => {
                 const tester = valueTester({ hloom: 'kazoo' });
                 
                 mount(
@@ -104,7 +104,7 @@ describe("ViewModel component", () => {
                 expect(tester).toHaveBeenCalled();
             });
             
-            test("ViewModel should pass multi-getter to initialState function", () => {
+            it("should pass multi-getter to initialState function", () => {
                 let values;
                 
                 mount(
@@ -120,19 +120,77 @@ describe("ViewModel component", () => {
                 expect(values).toEqual(['dunz', 'aax']);
             });
             
-            test("ViewModel should throw an exception on invalid initialState", () => {
+            it("should throw an exception on invalid initialState", () => {
                 expect(() => {
                     mount(
                         <ViewModel initialState={null} />
                     );
                 }).toThrow(`Invalid initialState: null`);
             });
+
+            describe("validation", () => {
+                let warn;
+
+                beforeEach(() => {
+                    warn = console.warn;
+                    console.warn = jest.fn();
+                });
+
+                afterEach(() => {
+                    console.warn = warn;
+                    warn = null;
+                });
+
+                it("should warn when overriding own data key", () => {
+                    mount(
+                        <ViewModel id="yerp"
+                            data={{ borkle: "dunz" }}
+                            initialState={{ borkle: "zump" }} />
+                    );
+
+                    expect(console.warn).toHaveBeenCalledWith(
+                        'initialState for ViewModel "yerp" contains key ' +
+                        '"borkle" that overrides data key with similar name ' +
+                        'provided by ViewModel "yerp".'
+                    );
+                });
+
+                it("should warn when overriding parent data key", () => {
+                    mount(
+                        <ViewModel id="yupple" data={{ numbe: "worp" }}>
+                            <ViewModel id="fungle"
+                                initialState={{ numbe: "turp" }} />
+                        </ViewModel>
+                    );
+
+                    expect(console.warn).toHaveBeenCalledWith(
+                        'initialState for ViewModel "fungle" contains key ' +
+                        '"numbe" that overrides data key with similar name ' +
+                        'provided by ViewModel "yupple".'
+                    );
+                });
+
+                it("should warn when overriding parent state key", () => {
+                    mount(
+                        <ViewModel id="jaffa" initialState={{ ryup: "vorp" }}>
+                            <ViewModel id="inggo"
+                                initialState={{ ryup: "mubble" }} />
+                        </ViewModel>
+                    );
+
+                    expect(console.warn).toHaveBeenCalledWith(
+                        'initialState for ViewModel "inggo" contains key ' +
+                        '"ryup" that overrides another state key with ' +
+                        'similar name provided by parent ViewModel "jaffa".'
+                    );
+                });
+            });
         });
         
         // Getting own state is pretty much covered in "initializing" block above
         describe("getting", () => {
             describe("inherited state", () => {
-                test("ViewModel should allow getting inherited state", () => {
+                it("should allow getting inherited state", () => {
                     const tester = valueTester({
                         gurgle: 'throbbe',
                         mymse: 'puxx',
@@ -158,7 +216,7 @@ describe("ViewModel component", () => {
         });
         
         describe("modifying", () => {
-            test("ViewModel should call applyState modifier on rendering", () => {
+            it("should call applyState modifier on rendering", () => {
                 let state, getter, values, result;
                 
                 const applier = jest.fn((currentState, $get) => {
@@ -205,7 +263,7 @@ describe("ViewModel component", () => {
         });
         
         describe("observing", () => {
-            test("ViewModel should not call observeStateChange on initial rendering", () => {
+            it("should not call observeStateChange on initial rendering", () => {
                 const observer = jest.fn();
                 let result;
                 
@@ -226,7 +284,7 @@ describe("ViewModel component", () => {
                 expect(observer).not.toHaveBeenCalled();
             });
             
-            test("ViewModel should call observeStateChange handler on state change", async () => {
+            it("should call observeStateChange handler on state change", async () => {
                 let result, setter, args;
                 
                 const observer = jest.fn((...params) => { args = params; });
@@ -258,7 +316,7 @@ describe("ViewModel component", () => {
     });
 
     describe("controller", () => {
-        test("given controller config, should instantiate a ViewController", async () => {
+        it("should instantiate a ViewController when given controller config", async () => {
             let value, dispatch;
             
             mount(
@@ -286,7 +344,7 @@ describe("ViewModel component", () => {
             expect(value).toBe('nux');
         });
         
-        test("given protectedKeys prop but no controller config, should still instantiate a ViewController", () => {
+        it("should instantiate a ViewController when given protectedKeys prop but no controller config", () => {
             let result, setter;
             
             mount(
@@ -317,7 +375,7 @@ describe("ViewModel component", () => {
         
         describe("syntax", () => {
             describe("valid syntax types", () => {
-                test("protected key can be a string", () => {
+                it("protected key can be a string", () => {
                     mount(
                         <ViewModel initialState={{ vurk: "yickle" }} protectedKeys="vurk">
                             <Bind props={{ value: { key: 'vurk', publish: true }}}>
@@ -333,7 +391,7 @@ describe("ViewModel component", () => {
                     }).toThrow('Cannot find handler for event "setVurk". Event arguments: ["burgle"]');
                 });
         
-                test("protected key can be a Symbol, with specified event name", () => {
+                it("protected key can be a Symbol, with specified event name", () => {
                     const sym = Symbol('ueke');
             
                     mount(
@@ -353,7 +411,7 @@ describe("ViewModel component", () => {
                     }).toThrow('Cannot find handler for event "keueu". Event arguments: [{"hudd":"gbon"}]');
                 });
         
-                test("protected key can be a Symbol, with event name also being a Symbol", async () => {
+                it("protected key can be a Symbol, with event name also being a Symbol", async () => {
                     const sym = Symbol('ktulu');
                     const event = Symbol('eerp');
             
@@ -381,7 +439,7 @@ describe("ViewModel component", () => {
                     expect(result).toBe("cyff");
                 });
         
-                test("protected keys can be an array", () => {
+                it("protected keys can be an array", () => {
                     mount(
                         <ViewModel initialState={{ nuck: "saff" }} protectedKeys={['nuck']}>
                             <Bind props={{ nuck: { key: 'nuck', publish: true }}}>
@@ -397,7 +455,7 @@ describe("ViewModel component", () => {
                     }).toThrow('Cannot find handler for event "setNuck". Event arguments: [[0]]');
                 });
         
-                test("protected keys can be an object", () => {
+                it("protected keys can be an object", () => {
                     mount(
                         <ViewModel initialState={{ lonto: "kuti" }} protectedKeys={{ lonto: "duff" }}>
                             <Bind props={[['lonto', true]]}>
@@ -420,7 +478,7 @@ describe("ViewModel component", () => {
                 // TODO Fuzzify this
                 describe("simplified syntax", () => {
                     invalid.slice(2).forEach(option => {
-                        test(`it should throw on ${option}`, () => {
+                        it(`should throw on ${option}`, () => {
                             expect(() => {
                                 mount(
                                     <ViewModel protectedKeys={option} />
@@ -429,7 +487,7 @@ describe("ViewModel component", () => {
                         });
                     });
                     
-                    test("it should throw when key is a Symbol but event is not specified", () => {
+                    it("should throw when key is a Symbol but event is not specified", () => {
                         const sym = Symbol('kront');
                     
                         expect(() => {
@@ -442,7 +500,7 @@ describe("ViewModel component", () => {
                 
                 describe("array syntax", () => {
                     [...invalid, []].forEach(option => {
-                        test(`it should throw on invalid key ${option}`, () => {
+                        it(`should throw on invalid key ${option}`, () => {
                             expect(() => {
                                 mount(
                                     <ViewModel protectedKeys={[option]} />
@@ -450,7 +508,7 @@ describe("ViewModel component", () => {
                             }).toThrow(`Invalid protected key: ${option}`);
                         });
                         
-                        test(`it should throw on invalid key ${option} in object definition`, () => {
+                        it(`should throw on invalid key ${option} in object definition`, () => {
                             expect(() => {
                                 mount(
                                     <ViewModel protectedKeys={[{ key: option }]} />
@@ -459,7 +517,7 @@ describe("ViewModel component", () => {
                         });
                     });
                     
-                    test("it should throw on invalid key definition (object)", () => {
+                    it("should throw on invalid key definition (object)", () => {
                         expect(() => {
                             mount(
                                 <ViewModel protectedKeys={[{ hurf: "itzo" }]} />
@@ -470,7 +528,7 @@ describe("ViewModel component", () => {
                 
                 describe("object syntax", () => {
                     [...invalid.slice(0, invalid.length - 1)].forEach(option => {
-                        test(`it should throw on invalid event "${option}"`, () => {
+                        it(`should throw on invalid event "${option}"`, () => {
                             expect(() => {
                                 mount(
                                     <ViewModel protectedKeys={{ [option]: option }} />
@@ -479,7 +537,7 @@ describe("ViewModel component", () => {
                         });
                     });
                     
-                    test("it should throw on invalid event (empty string)", () => {
+                    it("should throw on invalid event (empty string)", () => {
                         expect(() => {
                             mount(
                                 <ViewModel protectedKeys={{ funto: '' }} />
@@ -487,7 +545,7 @@ describe("ViewModel component", () => {
                         }).toThrow(`Invalid event name for protected key "funto": ""`);
                     });
                     
-                    test("it should throw when key is a Symbol but event is not specified", () => {
+                    it("should throw when key is a Symbol but event is not specified", () => {
                         const sym = Symbol('oof');
                     
                         expect(() => {
@@ -501,7 +559,7 @@ describe("ViewModel component", () => {
         });
         
         describe("implementation", () => {
-            test("calling a setter for protected key should fire event in own controller", async () => {
+            it("should fire event in own controller when calling a setter for protected key", async () => {
                 mount(
                     <ViewModel initialState={{ utun: "riggo" }}
                         protectedKeys="utun"
@@ -525,7 +583,7 @@ describe("ViewModel component", () => {
                 expect(result).toBe('vackle');
             });
             
-            test("calling a setter for protected key should fire event in parent controller", async () => {
+            it("should fire event in parent controller when calling a setter for protected key", async () => {
                 mount(
                     <ViewModel initialState={{ baff: "moow" }}
                         protectedKeys="baff"
@@ -551,7 +609,7 @@ describe("ViewModel component", () => {
                 expect(result).toBe('junt');
             });
             
-            test("setting a value through controller handler should actually work", async () => {
+            it("setting a value through controller handler should actually work", async () => {
                 mount(
                     <ViewModel initialState={{ schmoo: "findus" }}
                         protectedKeys="schmoo"
@@ -578,7 +636,7 @@ describe("ViewModel component", () => {
                 expect(result).toBe("gurkle");
             });
             
-            test("setting a protected key value through ViewModel setter should expose " +
+            it("setting a protected key value through ViewModel setter should expose " +
                  "protected $set to handler and avoid extra invocations", async () =>
             {
                 let vmSetter, vcSetter, value;

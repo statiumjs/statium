@@ -225,7 +225,7 @@ describe("ViewController", () => {
             
             mount(
                 <ViewModel data={{ gurgle: "weenk" }}>
-                    <ViewController>
+                    <ViewController id="qwerp">
                         <Bind controller>
                             { (_, { $get }) => {
                                 value = $get('gurgle');
@@ -918,7 +918,7 @@ describe("ViewController", () => {
         });
         
         describe("default", () => {
-            it("exception thrown in initializer should be rethrown in ViewControler render", async () => {
+            it("synchronous exception thrown in initializer should be rethrown in ViewControler render", async () => {
                 const tree = mount(
                     <ErrorBoundary>
                         <ViewController initialize={() => {
@@ -957,7 +957,47 @@ describe("ViewController", () => {
                 `);
             });
             
-            it("exception thrown in invalidator should be rethrown in ViewControler render", async () => {
+            it("asynchronous exception thrown in initializer should be caught and rethrown in ViewControler render", async () => {
+                const tree = mount(
+                    <ErrorBoundary>
+                        <ViewController initialize={async () => {
+                                await sleep(10);
+                                throw new Error("brukke");
+                            }}>
+                            
+                            <div>
+                                fhtagn
+                            </div>
+                        </ViewController>
+                    </ErrorBoundary>
+                );
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <ViewController
+                        initialize={[Function]}
+                      >
+                        <div>
+                          fhtagn
+                        </div>
+                      </ViewController>
+                    </ErrorBoundary>
+                `);
+                
+                // Give it enough cycles to re-render
+                await sleep(50);
+                tree.update();
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <div>
+                        Error: brukke
+                      </div>
+                    </ErrorBoundary>
+                `);
+            });
+            
+            it("synchronous exception thrown in invalidator should be rethrown in ViewControler render", async () => {
                 const tree = mount(
                     <ErrorBoundary>
                         <ViewController invalidate={() => {
@@ -993,6 +1033,48 @@ describe("ViewController", () => {
                     <ErrorBoundary>
                       <div>
                         Error: mpogh...
+                      </div>
+                    </ErrorBoundary>
+                `);
+            });
+            
+            it("asynchronous exception thrown in invalidator should be caught and rethrown in ViewControler render", async () => {
+                const tree = mount(
+                    <ErrorBoundary>
+                        <ViewController invalidate={async () => {
+                                await sleep();
+                                throw new Error("hruun...");
+                            }}>
+                            
+                            <div>
+                                dwakz?
+                            </div>
+                        </ViewController>
+                    </ErrorBoundary>
+                );
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <ViewController
+                        invalidate={[Function]}
+                      >
+                        <div>
+                          dwakz?
+                        </div>
+                      </ViewController>
+                    </ErrorBoundary>
+                `);
+                
+                // This is a bit of a hack but we need to force-rerender the controller
+                tree.find('ViewController').setState({ error: false });
+                
+                await sleep(10);
+                tree.update();
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <div>
+                        Error: hruun...
                       </div>
                     </ErrorBoundary>
                 `);
