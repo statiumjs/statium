@@ -208,7 +208,9 @@ export class ViewController extends React.Component {
 
         const me = this;
         
-        const { id, $viewModel, parentVc, handlers, children } = me.props;
+        const {
+            id, $viewModel, $viewModelInstance, parentVc, handlers, children
+        } = me.props;
         
         const innerVC = ({ vm, vc: parentVc }) => {
             const vc = accessorizeViewController({
@@ -223,6 +225,11 @@ export class ViewController extends React.Component {
             // for corresponding protected keys.
             vm.$dispatch = vc.$dispatch;
             vm.$protectedDispatch = vc.$protectedDispatch;
+
+            // ViewModel instance needs to expose $dispatch
+            if ($viewModelInstance) {
+                $viewModelInstance.$dispatch = vc.$dispatch;
+            }
 
             // ViewController needs $get to fire unmount event
             me.$get = vm.$get;

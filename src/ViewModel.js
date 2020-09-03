@@ -48,7 +48,7 @@ export const applyViewModelState = (currentState, values) => {
     return updated ? newState : currentState;
 };
 
-class ViewModelState extends React.Component {
+class ViewModel extends React.Component {
     static getDerivedStateFromProps(props, localState) {
         const { vm, applyState } = props;
         
@@ -83,14 +83,14 @@ class ViewModelState extends React.Component {
             validateInitialState(initialState, vm);
         }
         
-        this.state = {...initialState};
+        this.state = initialState;
     }
     
     componentDidUpdate() {
         const { vm, observeStateChange } = this.props;
         
         if (typeof observeStateChange === 'function') {
-            observeStateChange(vm.store);
+            observeStateChange(vm.store, vm.$get);
         }
     }
     
@@ -127,11 +127,16 @@ class ViewModelState extends React.Component {
         vm.protectedKeys = me.protectedKeys;
         vm.getKeySetter = me.getKeySetter;
         vm.setState = me.setViewModelState;
+
+        this.$get = vm.$get;
+        this.$set = vm.$set;
+        this.$dispatch = vm.$dispatch;
         
         const controller = me.props.controller || (me.protectedKeys ? {} : null);
         
         if (controller) {
             return <ViewController {...controller}
+                $viewModelInstance={this}
                 $viewModel={vm}
                 parentVc={vc}
                 ownerId={vm.id}>
@@ -150,7 +155,7 @@ class ViewModelState extends React.Component {
  *  id, data, initialState, formulas, applyState, observeStateChange, controller,
  *  protectedKeys, children
  */
-export const ViewModel = props => (
+export const ViewModelWrapper = props => (
     <Context.Consumer>
         { ({ vm: parentVm, vc }) => {
             const formulas = chain(parentVm.formulas, props.formulas);
@@ -173,7 +178,7 @@ export const ViewModel = props => (
             });
             
             return (
-                <ViewModelState vm={vm}
+                <ViewModel vm={vm}
                     vc={vc}
                     controller={props.controller}
                     initialState={props.initialState}
@@ -181,13 +186,13 @@ export const ViewModel = props => (
                     observeStateChange={props.observeStateChange}
                     protectedKeys={props.protectedKeys}>
                     { props.children }
-                </ViewModelState>
+                </ViewModel>
             );
         }}
     </Context.Consumer>
 );
 
-ViewModel.defaultProps = {
+ViewModelWrapper.defaultProps = {
     data: {},
     initialState: {},
     formulas: {},
