@@ -53,7 +53,7 @@ class ViewModelState extends React.Component {
         const { vm, applyState } = props;
         
         if (applyState) {
-            const result = applyState(localState, vm.$multiGet);
+            const result = applyState(localState, vm.$get);
             
             // If applyState() does not return a value, result will be `undefined`.
             // React complains about this, loudly; returning `null` instead is ok.
@@ -76,7 +76,7 @@ class ViewModelState extends React.Component {
         }
         
         if (typeof initialState === 'function') {
-            initialState = initialState(vm.$multiGet);
+            initialState = initialState(vm.$get);
         }
         
         if (process.env.NODE_ENV !== 'production') {
@@ -99,7 +99,7 @@ class ViewModelState extends React.Component {
             throw new Error(`Setting read-only key "${String(key)}" is not allowed.`);
         }
         
-        const setter = value => vm.$set(key, value);
+        const setter = value => vm.$setSingleValue(key, value);
         setter[accessorType] = 'set';
         
         return setter;

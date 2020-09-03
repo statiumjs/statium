@@ -28,11 +28,12 @@ export const rootViewModel = {
     store: {},
     $get: defaultGet,
     $set: defaultSet,
-    $retrieve: key => rootViewModel.$get(key),
+    $resolveValue: key => rootViewModel.$get(key),
     $dispatch: defaultDispatch,
 };
 
 export const rootViewController = {
+    vm: rootViewModel,
     $get: rootViewModel.$retrieve,
     $set: rootViewModel.$set,
     $dispatch: defaultDispatch,

@@ -10,10 +10,8 @@ const batch_updates = typeof ReactDOM.unstable_batchedUpdates === 'function'
     ? ReactDOM.unstable_batchedUpdates
     : fn => fn();
 
-const retrieve = (vm, key) =>
-    vm.formulas[key] ? vm.formulas[key](vm.$multiGet) : vm.$get(key);
-
-const getter = (vm, key) => loGet(vm.store, key);
+const resolveValue = (vm, key) =>
+    vm.formulas[key] ? vm.formulas[key](vm.$get) : loGet(vm.store, key);
 
 const getStateKeyOwner = (vm, key) => {
     const prefix = getKeyPrefix(key);
@@ -32,19 +30,6 @@ const getStateKeyOwner = (vm, key) => {
     return [owner, depth];
 };
 
-const setter = (vm, key, value) => {
-    const [owner] = getStateKeyOwner(vm, key);
-    
-    if (owner.protectedKeys && key in owner.protectedKeys) {
-        const event = owner.protectedKeys[key];
-        
-        return owner.$protectedDispatch(key, event, value);
-    }
-    else {
-        return owner.setState({ [key]: value });
-    }
-};
-
 export const multiGet = (vm, keys) => {
     let objectSyntax = false;
     
@@ -52,7 +37,7 @@ export const multiGet = (vm, keys) => {
         // Trivial case when getter invoked with one string key name, thusly:
         // const foo = $get('foo')
         if (validKey(keys[0])) {
-            return vm.$retrieve(keys[0]);
+            return vm.$resolveValue(keys[0]);
         }
         else if (typeof keys[0] === 'object') {
             keys = keys[0];
@@ -68,16 +53,27 @@ export const multiGet = (vm, keys) => {
     return objectSyntax ? mapProps(vm, bindings) : mapPropsToArray(vm, bindings);
 };
 
-export const multiSet = ({ vm, forceKey }, key, value) => {
+export const multiSet = ({ vm, forceKey, single }, key, value) => {
+    // Trivial case for single key, used for bound key setters.
+    // `single` flag is to optimize away the `validKey()` call
+    // when we know for sure it's only one key and it's valid.
+    if (single || validKey(key)) {
+        const [owner] = getStateKeyOwner(vm, key);
+    
+        if (owner.protectedKeys && key in owner.protectedKeys && key !== forceKey) {
+            const event = owner.protectedKeys[key];
+            
+            return owner.$protectedDispatch(key, event, value);
+        }
+        else {
+            return owner.setState({ [key]: value });
+        }
+    }
+
     let kv;
     
     if (key && typeof key === 'object' && !Array.isArray(key)) {
         kv = key;
-    }
-    else if (validKey(key)) {
-        kv = {
-            [key]: value
-        };
     }
     
     if (!kv) {
@@ -143,17 +139,20 @@ export const multiSet = ({ vm, forceKey }, key, value) => {
 };
 
 export const accessorizeViewModel = vm => {
-    vm.$retrieve = key => retrieve(vm, key);
-    vm.$retrieve[accessorType] = 'retrieve';
+    vm.$resolveValue = key => resolveValue(vm, key);
+    vm.$resolveValue[accessorType] = 'resolve';
+
+    vm.$setSingleValue = (key, value) => multiSet({ vm, single: true }, key, value);
+    vm.$setSingleValue[accessorType] = 'set';
     
-    vm.$get = key => getter(vm, key);
+    vm.$get = (...args) => multiGet(vm, args);
     vm.$get[accessorType] = 'get';
     
-    vm.$multiGet = (...args) => multiGet(vm, args);
-    vm.$multiGet[accessorType] = 'get';
-    
-    vm.$set = (...args) => setter(vm, ...args);
+    vm.$set = (...args) => multiSet({ vm }, ...args);
     vm.$set[accessorType] = 'set';
+    
+    vm.$protectedSet = (forceKey, ...args) => multiSet({ vm, forceKey }, ...args);
+    vm.$protectedSet[accessorType] = 'set';
     
     vm.$dispatch = vm.$dispatch || vm.parent.$dispatch;
     vm.$protectedDispatch = vm.$protectedDispatch || vm.parent.$protectedDispatch;

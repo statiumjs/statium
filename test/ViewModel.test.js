@@ -573,7 +573,7 @@ describe("ViewModel component", () => {
                 
                 setter("gurkle");
                 
-                await sleep(10);
+                await sleep();
                 
                 expect(result).toBe("gurkle");
             });
