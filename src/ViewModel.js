@@ -4,7 +4,7 @@ import loSet from 'lodash.set';
 import loHas from 'lodash.has';
 import loClone from 'lodash.clone';
 
-import { ViewModelContext } from './context';
+import { Context } from './context';
 import { getId, chain, getKeys, getKeyPrefix, normalizeProtectedKeys } from './util';
 import { validateInitialState, accessorizeViewModel, accessorType } from './accessors';
 import { ViewController } from './ViewController';
@@ -53,7 +53,7 @@ class ViewModelState extends React.Component {
         const { vm, applyState } = props;
         
         if (applyState) {
-            const result = applyState(localState, vm.$multiGet);
+            const result = applyState(localState, vm.$get);
             
             // If applyState() does not return a value, result will be `undefined`.
             // React complains about this, loudly; returning `null` instead is ok.
@@ -76,7 +76,7 @@ class ViewModelState extends React.Component {
         }
         
         if (typeof initialState === 'function') {
-            initialState = initialState(vm.$multiGet);
+            initialState = initialState(vm.$get);
         }
         
         if (process.env.NODE_ENV !== 'production') {
@@ -99,7 +99,7 @@ class ViewModelState extends React.Component {
             throw new Error(`Setting read-only key "${String(key)}" is not allowed.`);
         }
         
-        const setter = value => vm.$set(key, value);
+        const setter = value => vm.$setSingleValue(key, value);
         setter[accessorType] = 'set';
         
         return setter;
@@ -119,7 +119,7 @@ class ViewModelState extends React.Component {
     render() {
         const me = this;
         
-        const { vm, children } = me.props;
+        const { vm, vc, children } = me.props;
         
         vm.state = chain(vm.parent.state, me.state);
         vm.store = chain(vm.parent.store, vm.data, me.state);
@@ -128,19 +128,20 @@ class ViewModelState extends React.Component {
         vm.getKeySetter = me.getKeySetter;
         vm.setState = me.setViewModelState;
         
-        const innerViewModel = (
-            <ViewModelContext.Provider value={{ vm }}>
-                { children }
-            </ViewModelContext.Provider>
-        );
-        
         const controller = me.props.controller || (me.protectedKeys ? {} : null);
         
-        return !controller
-            ? innerViewModel
-            : <ViewController {...controller} $viewModel={vm} ownerId={vm.id}>
-                    { innerViewModel }
+        if (controller) {
+            return <ViewController {...controller}
+                $viewModel={vm}
+                parentVc={vc}
+                ownerId={vm.id}>
+                    { children }
               </ViewController>;
+        }
+
+        return <Context.Provider value={{ vm, vc }}>
+            { children }
+        </Context.Provider>
     }
 }
 
@@ -150,29 +151,30 @@ class ViewModelState extends React.Component {
  *  protectedKeys, children
  */
 export const ViewModel = props => (
-    <ViewModelContext.Consumer>
-        { ({ vm: parent }) => {
-            const formulas = chain(parent.formulas, props.formulas);
-            const data = chain(parent.data, props.data);
-            const state = chain(parent.state, {});
+    <Context.Consumer>
+        { ({ vm: parentVm, vc }) => {
+            const formulas = chain(parentVm.formulas, props.formulas);
+            const data = chain(parentVm.data, props.data);
+            const state = chain(parentVm.state, {});
             
             // At this point, our store contains only data
-            const store = chain(parent.store, props.data);
+            const store = chain(parentVm.store, props.data);
             
             const vm = accessorizeViewModel({
                 id: 'id' in props ? props.id : getId('ViewModel'),
-                parent,
+                parent: parentVm,
                 formulas,
                 data,
                 state,
-                // This property gets overwritten by ViewModelState.render(); the purpose
-                // of having it here is to provide initial store object for applyState()
-                // and initialState()
+                // This property gets overwritten by ViewModelState.render();
+                // the purpose of having it here is to provide initial
+                // store object for applyState() and initialState()
                 store,
             });
             
             return (
                 <ViewModelState vm={vm}
+                    vc={vc}
                     controller={props.controller}
                     initialState={props.initialState}
                     applyState={props.applyState}
@@ -182,7 +184,7 @@ export const ViewModel = props => (
                 </ViewModelState>
             );
         }}
-    </ViewModelContext.Consumer>
+    </Context.Consumer>
 );
 
 ViewModel.defaultProps = {

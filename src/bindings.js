@@ -93,7 +93,7 @@ export const mapProps = (vm, bindings) =>
     bindings.reduce((out, binding) => {
         const { propName, key, formula, publish, setterName } = binding;
         
-        out[propName] = formula ? formula(vm.$retrieve) : vm.$retrieve(key);
+        out[propName] = formula ? formula(vm.$get) : vm.$resolveValue(key);
         
         if (publish) {
             out[setterName] = vm.getKeySetter(vm, key);
@@ -106,7 +106,7 @@ export const mapPropsToArray = (vm, bindings) =>
     bindings.map(binding => {
         const { key, formula, publish } = binding;
         
-        const value = formula ? formula(vm.$retrieve) : vm.$retrieve(key);
+        const value = formula ? formula(vm.$get) : vm.$resolveValue(key);
         
         if (!publish) {
             return value;

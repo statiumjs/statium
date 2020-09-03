@@ -28,15 +28,18 @@ export const rootViewModel = {
     store: {},
     $get: defaultGet,
     $set: defaultSet,
-    $retrieve: key => rootViewModel.$get(key),
+    $resolveValue: key => rootViewModel.$get(key),
     $dispatch: defaultDispatch,
 };
 
 export const rootViewController = {
+    vm: rootViewModel,
     $get: rootViewModel.$retrieve,
     $set: rootViewModel.$set,
     $dispatch: defaultDispatch,
 };
+
+const _StatiumContext = Symbol('StatiumContext');
 
 // One often encountered problem is package being included more than once
 // in the application bundle, due to bundler misconfiguration or some other
@@ -44,39 +47,24 @@ export const rootViewController = {
 // pair of private ViewModel and ViewController contexts; this will lead to
 // _seriously_ hairy bugs that are really hard to track.
 // To avoid this issue, we simply cache context objects in the window.
-export const ViewModelContext = (() => {
+export const Context = (() => {
     let context;
     
     try {
-        if (window.__$StatiumViewModelContext) {
-            context = window.__$StatiumViewModelContext;
+        if (window[_StatiumContext]) {
+            context = window[_StatiumContext];
         }
         else {
-            context = React.createContext({ vm: rootViewModel });
-            window.__$StatiumViewModelContext = context;
+            throw new Error('No context');
         }
     }
     catch (e) {
-        context = React.createContext({ vm: rootViewModel });
-    }
-    
-    return context;
-})();
+        context = React.createContext({
+            vm: rootViewModel,
+            vc: rootViewController,
+        });
 
-export const ViewControllerContext = (() => {
-    let context;
-    
-    try {
-        if (window.__$StatiumViewControllerContext) {
-            context = window.__$StatiumViewControllerContext;
-        }
-        else {
-            context = window.__$StatiumViewControllerContext =
-                React.createContext(rootViewController);
-        }
-    }
-    catch (e) {
-        context = React.createContext(rootViewController);
+        window[_StatiumContext] = context;
     }
     
     return context;

@@ -5,9 +5,32 @@ import { bork, unbork } from './console.js';
 
 import ViewModel, { Bind, ViewController, useController } from '../src';
 
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { error: null };
+    }
+
+    componentDidCatch(error) {
+        this.setState({ error });
+    }
+
+    render() {
+        if (this.state.error) {
+            return (
+                <div>
+                    { String(this.state.error) }
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
+}
+
 describe("ViewController", () => {
     describe("root ViewController", () => {
-        test("it should throw an exception when trying to dispatch an event", () => {
+        it("should throw an exception when trying to dispatch an event", () => {
             let dispatch;
             
             mount(
@@ -26,7 +49,7 @@ describe("ViewController", () => {
     });
     
     describe("initialize", () => {
-        test("it should run initialize handler on first controller rendering", async () => {
+        it("should run initialize handler on first controller rendering", async () => {
             let foo;
             
             mount(
@@ -38,7 +61,7 @@ describe("ViewController", () => {
             expect(foo).toBe('bar');
         });
         
-        test("it should run initialize only once", async () => {
+        it("should run initialize only once", async () => {
             let counter = 0;
             
             const tree = mount(
@@ -56,7 +79,7 @@ describe("ViewController", () => {
             expect(counter).toBe(1);
         });
         
-        test("it should run initialize only once when ViewController is re-rendered before running initialize", async () => {
+        it("should run initialize only once when ViewController is re-rendered before running initialize", async () => {
             let counter = 0;
             
             const tree = mount(
@@ -73,7 +96,7 @@ describe("ViewController", () => {
     });
     
     describe("invalidate", () => {
-        test("it should not run invalidate handler on first controller rendering", async () => {
+        it("should not run invalidate handler on first controller rendering", async () => {
             let bar = 'baz';
             
             mount(
@@ -85,7 +108,7 @@ describe("ViewController", () => {
             expect(bar).toBe('baz');
         });
         
-        test("it should run invalidate handler on subsequent controller rendering", async () => {
+        it("should run invalidate handler on subsequent controller rendering", async () => {
             let blerg = 'throbbe';
             
             const tree = mount(
@@ -110,7 +133,7 @@ describe("ViewController", () => {
         const renderVC = async unmountFn => {
             const tree = mount(
                 <ViewModel
-                    data={{ promple: "duux" }}
+                    data={{ promple: "duux", faasx: "poink", }}
                     initialState={{ mountVC: true }}>
                     <Bind props={[["mountVC", true]]}>
                     { ({ mountVC, setMountVC }) => {
@@ -143,17 +166,17 @@ describe("ViewController", () => {
         });
 
         it("should allow reading keys in unmount handler", async () => {
-            let value;
+            let values;
 
             const tree = await renderVC(
-                ({ $get }) => { value = $get('promple'); }
+                ({ $get }) => { values = $get('promple', 'faasx'); }
             );
 
             setter(false);
             tree.update();
             await sleep();
 
-            expect(value).toBe("duux");
+            expect(values).toEqual(["duux", "poink"]);
         });
 
         it("should not allow setting key value in unmount handler", async () => {
@@ -168,7 +191,11 @@ describe("ViewController", () => {
             await sleep();
 
             expect(rendered).toBe(true);
-            expect(vcSetter).toBe(undefined);
+            expect(typeof vcSetter).toBe('function');
+
+            expect(() => {
+                vcSetter("kwak", "quup");
+            }).toThrow("Setting key values is not supported in unmount handler");
         });
 
         it("should not allow dispatching events in unmount handler", async () => {
@@ -183,18 +210,22 @@ describe("ViewController", () => {
             await sleep();
 
             expect(rendered).toBe(true);
-            expect(vcDispatch).toBe(undefined);
+            expect(typeof vcDispatch).toBe('function');
+
+            expect(() => {
+                vcDispatch("iyump");
+            }).toThrow("Dispatching events is not supported in unmount handler");
         });
     });
 
     
     describe("getters", () => {
-        test("called with one string key, should return the value", () => {
+        it("should return the value when called with one string key", () => {
             let value;
             
             mount(
                 <ViewModel data={{ gurgle: "weenk" }}>
-                    <ViewController>
+                    <ViewController id="qwerp">
                         <Bind controller>
                             { (_, { $get }) => {
                                 value = $get('gurgle');
@@ -207,7 +238,7 @@ describe("ViewController", () => {
             expect(value).toBe('weenk');
         });
         
-        test("called with one symbol key, should return the value", () => {
+        it("should return the value when called with one symbol key", () => {
             const sym = Symbol('iippo');
             let value;
             
@@ -226,7 +257,7 @@ describe("ViewController", () => {
             expect(value).toBe('uppu');
         });
         
-        test("called with variadic arguments, should return array of values", () => {
+        it("should return array of values when called with variadic arguments", () => {
             let values;
             
             mount(
@@ -242,7 +273,7 @@ describe("ViewController", () => {
             expect(values).toEqual(['mickle', 'afer']);
         });
         
-        test("called with single array of keys, should return array of values", () => {
+        it("should return array of values when called with single array of keys", () => {
             let values;
             
             mount(
@@ -258,7 +289,7 @@ describe("ViewController", () => {
             expect(values).toEqual(['lokh', undefined, 'fungle']);
         });
         
-        test("called with a single object of prop to key mappings (a la bindings), should return an object with specified props", () => {
+        it("should return an object with specified props when called with a single object of prop to key mappings (a la bindings)", () => {
             let values;
             
             mount(
@@ -305,7 +336,7 @@ describe("ViewController", () => {
             warning = null;
         });
         
-        test("it should throw an exception when called with invalid arguments", () => {
+        it("should throw an exception when called with invalid arguments", () => {
             let setter;
             
             mount(
@@ -325,7 +356,7 @@ describe("ViewController", () => {
             }).toThrow('Invalid arguments: key "["ridz","epoc"]", value: "undefined"');
         });
         
-        test("it should allow setting multiple keys in own state", async () => {
+        it("should allow setting multiple keys in own state", async () => {
             const sym = Symbol('iaaz');
             let setter, have;
         
@@ -361,7 +392,7 @@ describe("ViewController", () => {
             expect(warning).toBe(null);
         });
         
-        test("it should allow setting keys in different ViewModel owners", async () => {
+        it("should allow setting keys in different ViewModel owners", async () => {
             let setter, have;
         
             mount(
@@ -396,7 +427,7 @@ describe("ViewController", () => {
             expect(have).toEqual(want);
         });
         
-        test("when setting keys in different ViewModels, it should follow the order of parent to child ViewModel", async () => {
+        it("should follow the order of parent to child ViewModel when setting keys in different ViewModels", async () => {
             let have = [],
                 setter;
             
@@ -473,7 +504,7 @@ describe("ViewController", () => {
             ]);
         });
         
-        test("it should throw an exception if key owner is not found", () => {
+        it("should throw an exception if key owner is not found", () => {
             let setter;
             
             mount(
@@ -494,7 +525,7 @@ describe("ViewController", () => {
                        'provide initial value for this key in "initialState" prop.');
         });
         
-        test("it should dispatch correct event when setting value for a protected key", async () => {
+        it("should dispatch correct event when setting value for a protected key", async () => {
             let value, setter;
             
             const setKatin = jest.fn(({ $set }, v) => {
@@ -535,7 +566,7 @@ describe("ViewController", () => {
             expect(value).toBe("koko");
         });
         
-        test("protected key handler should be able to set its own key directly but not other keys", async () => {
+        it("protected key handler should be able to set its own key directly but not other keys", async () => {
             let value, otherValue, setter;
             
             const setBurkle = jest.fn(({ $set }, v) => {
@@ -581,8 +612,13 @@ describe("ViewController", () => {
     
     describe("event handlers", () => {
         let dispatch;
+
+        beforeEach(() => {
+            bork('error');
+        });
         
         afterEach(() => {
+            unbork('error');
             dispatch = null;
         });
         
@@ -594,7 +630,7 @@ describe("ViewController", () => {
             return null;
         };
         
-        test("ViewController should throw an exception if handler is not found", () => {
+        it("ViewController should throw an exception if handler is not found", () => {
             mount(
                 <ViewController handlers={{
                         foo: () => {},
@@ -608,7 +644,7 @@ describe("ViewController", () => {
             }).toThrow('Cannot find handler for event "bar". Event arguments: []');
         });
         
-        test("it should dispatch event to a handler", async () => {
+        it("should dispatch event to a handler", async () => {
             let value;
             
             mount(
@@ -626,7 +662,7 @@ describe("ViewController", () => {
             expect(value).toBe('hloom');
         });
         
-        test("events with Symbol names shold work as expected", async () => {
+        it("events with Symbol names shold work as expected", async () => {
             const sym = Symbol('brunz');
             let value;
             
@@ -645,7 +681,7 @@ describe("ViewController", () => {
             expect(value).toBe('vuckle');
         });
         
-        test("it should cancel previous invocation of a handler if called within same event loop", async () => {
+        it("should cancel previous invocation of a handler if called within same event loop", async () => {
             let counter = 0;
             
             mount(
@@ -664,7 +700,7 @@ describe("ViewController", () => {
             expect(counter).toBe(1);
         });
         
-        test("it should cancel handler invocation(s) if ViewController is unmounted", async () => {
+        it("should cancel handler invocation(s) if ViewController is unmounted", async () => {
             let erup = 0,
                 seng = 0;
             
@@ -688,7 +724,7 @@ describe("ViewController", () => {
             expect(seng).toBe(0);
         });
         
-        test("it should pass ViewController and arguments to handler", async () => {
+        it("should pass ViewController and arguments to handler", async () => {
             let vc, args;
             
             mount(
@@ -710,7 +746,7 @@ describe("ViewController", () => {
             expect(args).toEqual(['munk', 'xroom']);
         });
         
-        test("it should climb up the parent chain to dispatch an event", async () => {
+        it("should climb up the parent chain to dispatch an event", async () => {
             let value, parentDispatch;
             
             mount(
@@ -740,7 +776,7 @@ describe("ViewController", () => {
             expect(value).toBe('kaputz');
         });
         
-        test("event handler should return a Promise that is eventually resolved", async () => {
+        it("event handler should return a Promise that is eventually resolved", async () => {
             mount(
                 <ViewController handlers={{
                         gruddle: async (vc, arg) => {
@@ -763,31 +799,112 @@ describe("ViewController", () => {
             expect(result).toEqual({ mundu: true });
         });
         
-        // eslint-disable-next-line jest/no-test-callback
-        test("Promise returned by event handler should be rejected if handler throws an exception", done => {
-            mount(
-                <ViewController handlers={{
-                        gangr: async (vc, arg) => {
-                            await sleep(0);
-                            
-                            throw new Error(arg);
-                        },
-                    }}>
-                    
+        it("Promise returned by event handler should be rejected if synchronous handler throws an exception", async done => {
+            const tree = mount(
+                <ErrorBoundary>
+                    <ViewController handlers={{
+                            gangr: (vc, arg) => {
+                                throw new Error(arg);
+                            },
+                        }}>
+                        
+                        <Component />
+                    </ViewController>
+                </ErrorBoundary>
+            );
+
+            expect(tree).toMatchInlineSnapshot(`
+                <ErrorBoundary>
+                  <ViewController
+                    handlers={
+                      Object {
+                        "gangr": [Function],
+                      }
+                    }
+                  >
                     <Component />
-                </ViewController>
+                  </ViewController>
+                </ErrorBoundary>
+            `);
+            
+            try {
+                await dispatch('gangr', 'bzuurg!');
+                
+                // This should never be reached
+                done.fail('Handler did not throw exception');
+            }
+            catch (e) {
+                expect(e.message).toBe('bzuurg!');
+            }
+
+            // Give it enough cycles to re-render
+            tree.update();
+            await sleep(10);
+            
+            expect(tree).toMatchInlineSnapshot(`
+                <ErrorBoundary>
+                  <div>
+                    Error: bzuurg!
+                  </div>
+                </ErrorBoundary>
+            `);
+
+            done();
+        });
+
+        it("Promise returned by event handler should be rejected if asynchronous handler throws an exception", async done => {
+            const tree = mount(
+                <ErrorBoundary>
+                    <ViewController handlers={{
+                            wickle: async (vc, arg) => {
+                                await sleep(10);
+                                
+                                throw new Error(arg);
+                            },
+                        }}>
+                        
+                        <Component />
+                    </ViewController>
+                </ErrorBoundary>
             );
             
-            const promise = dispatch('gangr', 'bzuurg!');
+            expect(tree).toMatchInlineSnapshot(`
+                <ErrorBoundary>
+                  <ViewController
+                    handlers={
+                      Object {
+                        "wickle": [Function],
+                      }
+                    }
+                  >
+                    <Component />
+                  </ViewController>
+                </ErrorBoundary>
+            `);
             
-            promise
-                .then(() => { done.fail('Handler did not throw exception'); })
-                .catch(e => {
-                    expect(e.message).toBe('bzuurg!');
-                    
-                    // eslint-disable-next-line promise/no-callback-in-promise
-                    done();
-                });
+            try {
+                await dispatch('wickle', 'klapz?');
+                
+                // This should never be reached
+                done.fail('Handler did not throw exception');
+            }
+            catch (e) {
+                expect(e.message).toBe('klapz?');
+            }
+
+            // Give it enough cycles to re-render
+            tree.update();
+            await sleep(10);
+            
+            expect(tree).toMatchInlineSnapshot(`
+                <ErrorBoundary>
+                  <div>
+                    Error: klapz?
+                  </div>
+                </ErrorBoundary>
+            `);
+
+            done();
         });
     });
 
@@ -801,30 +918,7 @@ describe("ViewController", () => {
         });
         
         describe("default", () => {
-            class ErrorBoundary extends React.Component {
-                constructor(props) {
-                    super(props);
-                    this.state = { error: null };
-                }
-
-                componentDidCatch(error) {
-                    this.setState({ error });
-                }
-
-                render() {
-                    if (this.state.error) {
-                        return (
-                            <div>
-                                { String(this.state.error) }
-                            </div>
-                        );
-                    }
-
-                    return this.props.children;
-                }
-            }
-        
-            test("exception thrown in initializer should be rethrown in ViewControler render", async () => {
+            it("synchronous exception thrown in initializer should be rethrown in ViewControler render", async () => {
                 const tree = mount(
                     <ErrorBoundary>
                         <ViewController initialize={() => {
@@ -863,7 +957,47 @@ describe("ViewController", () => {
                 `);
             });
             
-            test("exception thrown in invalidator should be rethrown in ViewControler render", async () => {
+            it("asynchronous exception thrown in initializer should be caught and rethrown in ViewControler render", async () => {
+                const tree = mount(
+                    <ErrorBoundary>
+                        <ViewController initialize={async () => {
+                                await sleep(10);
+                                throw new Error("brukke");
+                            }}>
+                            
+                            <div>
+                                fhtagn
+                            </div>
+                        </ViewController>
+                    </ErrorBoundary>
+                );
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <ViewController
+                        initialize={[Function]}
+                      >
+                        <div>
+                          fhtagn
+                        </div>
+                      </ViewController>
+                    </ErrorBoundary>
+                `);
+                
+                // Give it enough cycles to re-render
+                await sleep(50);
+                tree.update();
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <div>
+                        Error: brukke
+                      </div>
+                    </ErrorBoundary>
+                `);
+            });
+            
+            it("synchronous exception thrown in invalidator should be rethrown in ViewControler render", async () => {
                 const tree = mount(
                     <ErrorBoundary>
                         <ViewController invalidate={() => {
@@ -904,7 +1038,49 @@ describe("ViewController", () => {
                 `);
             });
             
-            test("exception thrown in event handler should be rethrown in render", async () => {
+            it("asynchronous exception thrown in invalidator should be caught and rethrown in ViewControler render", async () => {
+                const tree = mount(
+                    <ErrorBoundary>
+                        <ViewController invalidate={async () => {
+                                await sleep();
+                                throw new Error("hruun...");
+                            }}>
+                            
+                            <div>
+                                dwakz?
+                            </div>
+                        </ViewController>
+                    </ErrorBoundary>
+                );
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <ViewController
+                        invalidate={[Function]}
+                      >
+                        <div>
+                          dwakz?
+                        </div>
+                      </ViewController>
+                    </ErrorBoundary>
+                `);
+                
+                // This is a bit of a hack but we need to force-rerender the controller
+                tree.find('ViewController').setState({ error: false });
+                
+                await sleep(10);
+                tree.update();
+                
+                expect(tree).toMatchInlineSnapshot(`
+                    <ErrorBoundary>
+                      <div>
+                        Error: hruun...
+                      </div>
+                    </ErrorBoundary>
+                `);
+            });
+            
+            it("exception thrown in event handler should be rethrown in render", async done => {
                 let dispatch;
                 
                 const tree = mount(
@@ -950,7 +1126,14 @@ describe("ViewController", () => {
                     </ErrorBoundary>
                 `);
                 
-                dispatch('verr');
+                try {
+                    await dispatch('verr');
+
+                    done.fail("Exception wasn't thrown");
+                }
+                catch (e) {
+                    expect(e.message).toBe("qopp");
+                }
                 
                 await sleep(10);
                 
@@ -963,6 +1146,8 @@ describe("ViewController", () => {
                       </div>
                     </ErrorBoundary>
                 `);
+
+                done();
             });
         });
     });

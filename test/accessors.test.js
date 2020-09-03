@@ -23,7 +23,7 @@ describe("accessors", () => {
     
     describe("root accessor error handling", () => {
         describe("development", () => {
-            test("trying to get a value should throw an exception", () => {
+            it("should throw an exception when trying to get a value", () => {
                 expect(() => {
                     mount(
                         <Bind props="foo">
@@ -33,7 +33,7 @@ describe("accessors", () => {
                 }).toThrow('Failed to retrieve a value for key "foo", no ViewModel found');
             });
     
-            test("trying to set a value should throw an exception", () => {
+            it("should throw an exception when trying to set a value", () => {
                 let setter;
         
                 mount(
@@ -67,7 +67,7 @@ describe("accessors", () => {
                 error = null;
             });
         
-            test("trying to get a value should print an error but NOT throw an exception", () => {
+            it("should print an error but NOT throw an exception when trying to get a value", () => {
                 expect(() => {
                     mount(
                         <Bind props="plugh">
@@ -79,7 +79,7 @@ describe("accessors", () => {
                 expect(error).toBe('Failed to retrieve a value for key "plugh", no ViewModel found');
             });
     
-            test("trying to set a value should print an error but NOT throw an exception", () => {
+            it("should print an error but NOT throw an exception when trying to set a value", () => {
                 let setter;
             
                 mount(
@@ -101,7 +101,7 @@ describe("accessors", () => {
     
     describe("getters", () => {
         describe("called with one key, as used in ViewModel", () => {
-            test("a getter should retrieve own data value", () => {
+            it("should retrieve own data value", () => {
                 const data = { uyun: "pewm" };
                 const tester = valueTester(data);
             
@@ -116,7 +116,7 @@ describe("accessors", () => {
                 expect(tester).toHaveBeenCalled();
             });
         
-            test("a getter should retrieve own state value", async () => {
+            it("should retrieve own state value", async () => {
                 let value, setter;
             
                 mount(
@@ -137,7 +137,7 @@ describe("accessors", () => {
                 expect(value).toBe("muux");
             });
         
-            test("a getter should retrieve parent data value", () => {
+            it("should retrieve parent data value", () => {
                 const data = { quarck: "oonz" };
                 const tester = valueTester(data);
             
@@ -154,7 +154,7 @@ describe("accessors", () => {
                 expect(tester).toHaveBeenCalled();
             });
         
-            test("a getter should retrieve parent state value", async () => {
+            it("should retrieve parent state value", async () => {
                 let value, setter;
             
                 mount(
@@ -177,7 +177,7 @@ describe("accessors", () => {
                 expect(value).toBe("dutze");
             });
         
-            test("a getter should support Symbol keys", () => {
+            it("should support Symbol keys", () => {
                 const sym = Symbol('krackle');
                 const data = { [sym]: "aoum" };
                 const tester = valueTester(data);
@@ -193,7 +193,7 @@ describe("accessors", () => {
                 expect(tester).toHaveBeenCalled();
             });
         
-            test("a getter should retrieve value with deep key selector", () => {
+            it("should retrieve value with deep key selector", () => {
                 const data = {
                     smoo: {
                         juff: {
@@ -221,7 +221,7 @@ describe("accessors", () => {
     
     describe("formulas", () => {
         describe("defined in ViewModel", () => {
-            test("a formula should be passed a getter when executed", () => {
+            it("should be passed a getter when executed", () => {
                 let getter;
                 
                 mount(
@@ -238,7 +238,7 @@ describe("accessors", () => {
                 expect(getter[accessorType]).toBe('get');
             });
             
-            test("formula execution result should be passed as bound value", () => {
+            it("formula execution result should be passed as bound value", () => {
                 const tester = valueTester({ gurgle: 66 });
                 
                 mount(
@@ -253,7 +253,7 @@ describe("accessors", () => {
                 expect(tester).toHaveBeenCalled();
             });
             
-            test("formula can depend on another formula", () => {
+            it("formula can depend on another formula", () => {
                 const tester = valueTester({ moow: 123 });
                 
                 mount(
@@ -271,7 +271,7 @@ describe("accessors", () => {
                 expect(tester).toHaveBeenCalled();
             });
             
-            test("formula should be executed on each binding read", async () => {
+            it("formula should be executed on each binding read", async () => {
                 const values = [];
                 let setter;
                 
@@ -295,7 +295,7 @@ describe("accessors", () => {
                 expect(values).toEqual([1, 11]);
             });
             
-            test("a formula should support Symbol keys", () => {
+            it("a formula should support Symbol keys", () => {
                 const sym = Symbol('muckle');
                 const data = { purgle: "yeck" };
                 const tester = valueTester({ [sym]: "yeck" });
@@ -311,7 +311,7 @@ describe("accessors", () => {
                 expect(tester).toHaveBeenCalled();
             });
 
-            test("formula should be able to retrieve multiple values at once", () => {
+            it("formula should be able to retrieve multiple values at once", () => {
                 const data = { edum: "snuckle", wepp: "cicum" };
                 const tester = valueTester({ ghun: ["snuckle", "cicum"] });
 
@@ -334,7 +334,7 @@ describe("accessors", () => {
             const pi = 3.14;
             const data = { radius: 100 };
             
-            test("it should work as expected", () => {
+            it("it should work as expected", () => {
                 const tester = valueTester({ length: 628 });
         
                 mount(
@@ -349,8 +349,28 @@ describe("accessors", () => {
                 
                 expect(tester).toHaveBeenCalled();
             });
+
+            it("should support retrieving multiple values", () => {
+                const tester = valueTester({ area: 31400 });
+
+                mount(
+                    <ViewModel data={{ ...data, pi }}>
+                        <Bind props={{
+                            area: $get => {
+                                const [pi, radius] = $get('pi', 'radius');
+
+                                return pi * radius ** 2;
+                            },
+                        }}>
+                        { tester }
+                        </Bind>
+                    </ViewModel>
+                );
+
+                expect(tester).toHaveBeenCalled();
+            });
             
-            test("it should support Symbol keys", () => {
+            it("it should support Symbol keys", () => {
                 const sym = Symbol('area');
                 const tester = valueTester({ [sym]: 31400 });
                 
@@ -370,7 +390,7 @@ describe("accessors", () => {
     });
     
     describe("setters", () => {
-        test("trying to bind a setter for data key should throw exception", () => {
+        it("should throw exception trying to bind a setter for data key", () => {
             expect(() => {
                 mount(
                     <ViewModel data={{ aegh: "jimp" }} initialState={{ wekk: "ippu" }}>
@@ -380,7 +400,7 @@ describe("accessors", () => {
             }).toThrow('Setting read-only key "aegh" is not allowed.');
         });
         
-        test("it should set value for own key defined in initialState", async () => {
+        it("should set value for own key defined in initialState", async () => {
             const values = {};
             
             mount(
@@ -400,7 +420,7 @@ describe("accessors", () => {
             expect(typeof values.setJakk).toBe('function');
         });
         
-        test("it should allow setting a key in inherited state", async () => {
+        it("should allow setting a key in inherited state", async () => {
             const values = {};
             
             mount(
@@ -428,7 +448,7 @@ describe("accessors", () => {
             expect(typeof values.setValue).toBe('function');
         });
         
-        test("it should support setting a value with deep key selector", async () => {
+        it("should support setting a value with deep key selector", async () => {
             const values = {};
             const data = {
                 donk: {
@@ -474,7 +494,7 @@ describe("accessors", () => {
             expect(typeof values.setEurg).toBe('function');
         });
         
-        test("setting state should work after parent component re-mount", async () => {
+        it("setting state should work after parent component re-mount", async () => {
             const data = { pharg: "nix" };
             const values = {};
             
@@ -516,7 +536,7 @@ describe("accessors", () => {
             expect(typeof values.setValue).toBe('function');
         });
         
-        test("it should allow setting a value for Symbol key", async () => {
+        it("should allow setting a value for Symbol key", async () => {
             const sym = Symbol('foofle');
             let result, setter;
     
