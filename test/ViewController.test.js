@@ -217,7 +217,6 @@ describe("ViewController", () => {
             }).toThrow("Dispatching events is not supported in unmount handler");
         });
     });
-
     
     describe("getters", () => {
         it("should return the value when called with one string key", () => {
@@ -321,15 +320,18 @@ describe("ViewController", () => {
     
     describe("setters", () => {
         const oldConsoleWarn = console.warn;
+        const oldConsoleError = console.error;
         
         let warning = null;
         
         beforeAll(() => {
             console.warn = w => { warning = w; };
+            console.error = jest.fn(() => {});
         });
         
         afterAll(() => {
             console.warn = oldConsoleWarn;
+            console.error = oldConsoleError;
         });
         
         afterEach(() => {
@@ -502,6 +504,63 @@ describe("ViewController", () => {
                 { parent: 'enok' },
                 { child: 'hrum' },
             ]);
+        });
+
+        it("should not attempt to set state on unmounted ViewModel", async () => {
+            let setter;
+
+            const tree = mount(
+                <ViewModel id="outer" initialState={{ mounted: true }}>
+                    <Bind props="mounted">
+                    { ({ mounted }) => {
+                        if (mounted) {
+                            return  (
+                                <ViewModel id="inner"
+                                    initialState={{ wiffle: "fung" }}
+                                    controller={{}}>
+                                    <Bind props="wiffle" controller>
+                                    { ({ wiffle }, { $set }) => {
+                                        setter = $set;
+
+                                        return (
+                                            <div>
+                                                today's wiffle flavor: {wiffle}
+                                            </div>
+                                        );
+                                    }}
+                                    </Bind>
+                                </ViewModel>
+                            )
+                        }
+                        
+                        return <div>no wiffle today :(</div>;
+                    }}
+                    </Bind>
+                </ViewModel>
+            );
+
+            expect(tree.find('div')).toMatchInlineSnapshot(`
+            <div>
+              today's wiffle flavor: 
+              fung
+            </div>
+            `);
+
+            setter('mounted', false);
+            tree.update();
+            await sleep(10);
+
+            setter('wiffle', 'wuckleberry');
+            tree.update();
+            await sleep(10);
+
+            expect(tree.find('div')).toMatchInlineSnapshot(`
+            <div>
+              no wiffle today :(
+            </div>
+            `);
+
+            expect(console.error).not.toHaveBeenCalled();
         });
         
         it("should throw an exception if key owner is not found", () => {

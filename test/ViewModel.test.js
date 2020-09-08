@@ -13,11 +13,11 @@ const valueTester = want =>
 describe("ViewModel component", () => {
     const oldConsoleError = console.error;
     
-    beforeAll(() => {
+    beforeEach(() => {
         console.error = () => {};
     });
     
-    afterAll(() => {
+    afterEach(() => {
         console.error = oldConsoleError;
     });
     
@@ -211,6 +211,47 @@ describe("ViewModel component", () => {
                     );
                 
                     expect(tester).toHaveBeenCalled();
+                });
+            });
+        });
+
+        describe("setting", () => {
+            describe("unmounted", () => {
+                class Container extends React.Component {
+                    constructor(props) {
+                        super(props);
+                        this.state = { mounted: true };
+                    }
+
+                    render() {
+                        if (!this.state.mounted) {
+                            return null;
+                        }
+
+                        return (
+                            <ViewModel initialState={{ dmurr: "enge" }} />
+                        );
+                    }
+                }
+
+                beforeEach(() => {
+                    console.error = jest.fn();
+                });
+
+                it("should not set state on unmounted ViewModel", async () => {
+                    const tree = mount(<Container />);
+
+                    const container = tree.find('Container').instance();
+                    const model = tree.find('ViewModel').instance();
+
+                    container.setState({ mounted: false });
+                    model.$set('dmurr', 'fruckle');
+
+                    tree.update();
+                    await sleep(10);
+
+                    expect(model.$get('dmurr')).toBe('enge');
+                    expect(console.error).not.toHaveBeenCalled();
                 });
             });
         });

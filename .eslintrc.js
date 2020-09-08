@@ -44,5 +44,6 @@ module.exports = {
         'react/prop-types': 'off',
         'jest/no-test-callback': 'off',
         'jest/no-try-expect': 'off',
+        'react/no-unescaped-entities': 'off',
     }
 };

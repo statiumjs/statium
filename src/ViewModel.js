@@ -85,6 +85,10 @@ class ViewModel extends React.Component {
         
         this.state = initialState;
     }
+
+    componentWillUnmount() {
+        this.unmounted = true;
+    }
     
     componentDidUpdate() {
         const { vm, observeStateChange } = this.props;
@@ -107,7 +111,11 @@ class ViewModel extends React.Component {
     
     setViewModelState(props) {
         const me = this;
-        
+
+        if (me.unmounted) {
+            return Promise.resolve();
+        }
+
         return new Promise(resolve => {
             me.setState(
                 state => applyViewModelState(state, props),

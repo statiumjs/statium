@@ -14,7 +14,14 @@ const defaultGet = key => {
 };
 
 const defaultSet = (key, value) => {
-    error(`Failed to set key "${key}", no ViewModel found. Value: ${JSON.stringify(value)}`);
+    if (typeof key === 'object') {
+        const keys = Object.keys(key).map(k => `"${String(k)}"`).join(', ');
+
+        error(`Failed to set keys: ${keys}; no ViewModel found.`);
+    }
+    else {
+        error(`Failed to set key "${key}", no ViewModel found. Value: ${JSON.stringify(value)}`);
+    }
 };
 
 const defaultDispatch = (event, ...payload) => {
