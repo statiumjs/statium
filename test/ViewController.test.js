@@ -4,6 +4,7 @@ import sleep from './sleep.js';
 import { bork, unbork } from './console.js';
 
 import ViewModel, { Bind, ViewController, useController } from '../src';
+import { ViewModelUnmountedError } from '../src/context.js';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -25,6 +26,24 @@ class ErrorBoundary extends React.Component {
         }
 
         return this.props.children;
+    }
+}
+
+class MountContainer extends React.Component {
+    constructor(props) {
+        super(props);
+
+        this.state = { mounted: true };
+    }
+
+    render() {
+        const { children } = this.props;
+
+        if (this.state.mounted) {
+            return children;
+        }
+
+        return <div>not mounted</div>;
     }
 }
 
@@ -93,6 +112,130 @@ describe("ViewController", () => {
             
             expect(counter).toBe(1);
         });
+
+        describe("ViewModel is unmounted while initializer handler is running", () => {
+            it("should throw exception in $get", async done => {
+                let exception;
+
+                const tree = mount(
+                    <MountContainer>
+                        <ViewModel initialState={{ cuffo: "uipe" }}
+                            controller={{
+                                initialize: async ({ $get }) => {
+                                    await sleep(10);
+
+                                    try {
+                                        $get('cuffo');
+
+                                        done.fail("Exception should have been thrown!");
+                                    }
+                                    catch (e) {
+                                        exception = e;
+                                    }
+                                },
+                            }}>
+                        </ViewModel>
+                    </MountContainer>
+                );
+
+                await sleep();
+
+                const container = tree.find('MountContainer').instance();
+                container.setState({ mounted: false });
+                tree.update();
+                await sleep(10);
+
+                expect(exception instanceof ViewModelUnmountedError).toBe(true);
+
+                done();
+            });
+
+            it("should throw exception in $set", async done => {
+                let exception;
+
+                const tree = mount(
+                    <MountContainer>
+                        <ViewModel initialState={{ typple: "rungu" }}
+                            controller={{
+                                initialize: async ({ $get, $set }) => {
+                                    const typple = $get('typple');
+
+                                    expect(typple).toBe('rungu');
+
+                                    await sleep(10);
+
+                                    try {
+                                        $set('typple', 'vumbu');
+
+                                        done.fail("Exception should have been thrown!");
+                                    }
+                                    catch (e) {
+                                        exception = e;
+                                    }
+                                },
+                            }}>
+                        </ViewModel>
+                    </MountContainer>
+                );
+
+                await sleep();
+
+                const container = tree.find('MountContainer').instance();
+                container.setState({ mounted: false });
+                tree.update();
+                await sleep(10);
+
+                expect(exception instanceof ViewModelUnmountedError).toBe(true);
+
+                done();
+            });
+
+            it("should throw exception in $dispatch", async done => {
+                let exception;
+
+                const tree = mount(
+                    <MountContainer>
+                        <ViewModel initialState={{ engi: "ommo" }}
+                            controller={{
+                                initialize: async ({ $dispatch }) => {
+                                    await sleep(10);
+
+                                    try {
+                                        $dispatch('maipo');
+
+                                        done.fail("Exception should have been thrown!");
+                                    }
+                                    catch (e) {
+                                        exception = e;
+                                    }
+                                },
+                                // This is to make sure we're not throwing
+                                // on missing handler
+                                handlers: {
+                                    maipo: jest.fn(() => {}),
+                                },
+                            }}>
+                        </ViewModel>
+                    </MountContainer>
+                );
+
+                const controller = tree.find('ViewController').instance();
+                const maipoHandler = controller.props.handlers.maipo;
+                expect(typeof maipoHandler).toBe('function');
+
+                await sleep();
+
+                const container = tree.find('MountContainer').instance();
+                container.setState({ mounted: false });
+                tree.update();
+                await sleep(10);
+
+                expect(maipoHandler).not.toHaveBeenCalled();
+                expect(exception instanceof ViewModelUnmountedError).toBe(true);
+
+                done();
+            });
+        });
     });
     
     describe("invalidate", () => {
@@ -124,6 +267,149 @@ describe("ViewController", () => {
             await sleep();
             
             expect(blerg).toBe("plugh");
+        });
+
+        describe("ViewModel is unmounted while invalidate handler is running", () => {
+            it("should throw exception in $get", async done => {
+                let exception;
+
+                const tree = mount(
+                    <MountContainer>
+                        <ViewModel initialState={{ yuntu: "ruddle" }}
+                            controller={{
+                                invalidate: async ({ $get }) => {
+                                    await sleep(10);
+
+                                    try {
+                                        $get('yuntu');
+
+                                        done.fail("Exception should have been thrown!");
+                                    }
+                                    catch (e) {
+                                        exception = e;
+                                    }
+                                },
+                            }}>
+                        </ViewModel>
+                    </MountContainer>
+                );
+
+                await sleep();
+
+                // This is a bit of a hack but we need to re-render ViewController
+                // in order to fire invalidate event
+                const controller = tree.find('ViewController').instance();
+                controller.setState({ error: false });
+
+                tree.update();
+                await sleep();
+
+                const container = tree.find('MountContainer').instance();
+                container.setState({ mounted: false });
+                tree.update();
+                await sleep(10);
+
+                expect(exception instanceof ViewModelUnmountedError).toBe(true);
+
+                done();
+            });
+
+            it("should throw exception in $set", async done => {
+                let exception;
+
+                const tree = mount(
+                    <MountContainer>
+                        <ViewModel initialState={{ gaina: "qutto" }}
+                            controller={{
+                                initialize: async ({ $get, $set }) => {
+                                    const typple = $get('gaina');
+
+                                    expect(typple).toBe('qutto');
+
+                                    await sleep(10);
+
+                                    try {
+                                        $set('gaina', 'norka');
+
+                                        done.fail("Exception should have been thrown!");
+                                    }
+                                    catch (e) {
+                                        exception = e;
+                                    }
+                                },
+                            }}>
+                        </ViewModel>
+                    </MountContainer>
+                );
+
+                await sleep();
+
+                const controller = tree.find('ViewController').instance();
+                controller.setState({ error: false });
+
+                tree.update();
+                await sleep();
+
+                const container = tree.find('MountContainer').instance();
+                container.setState({ mounted: false });
+                tree.update();
+                await sleep(10);
+
+                expect(exception instanceof ViewModelUnmountedError).toBe(true);
+
+                done();
+            });
+
+            it("should throw exception in $dispatch", async done => {
+                let exception;
+
+                const tree = mount(
+                    <MountContainer>
+                        <ViewModel initialState={{ saimi: "mukka" }}
+                            controller={{
+                                initialize: async ({ $dispatch }) => {
+                                    await sleep(10);
+
+                                    try {
+                                        $dispatch('cthulfu');
+
+                                        done.fail("Exception should have been thrown!");
+                                    }
+                                    catch (e) {
+                                        exception = e;
+                                    }
+                                },
+                                // This is to make sure we're not throwing
+                                // on missing handler
+                                handlers: {
+                                    cthulfu: jest.fn(() => {}),
+                                },
+                            }}>
+                        </ViewModel>
+                    </MountContainer>
+                );
+
+                await sleep();
+
+                const controller = tree.find('ViewController').instance();
+                const cthulfuHandler = controller.props.handlers.cthulfu;
+                expect(typeof cthulfuHandler).toBe('function');
+
+                controller.setState({ error: false });
+                tree.update();
+
+                await sleep();
+
+                const container = tree.find('MountContainer').instance();
+                container.setState({ mounted: false });
+                tree.update();
+                await sleep(10);
+
+                expect(cthulfuHandler).not.toHaveBeenCalled();
+                expect(exception instanceof ViewModelUnmountedError).toBe(true);
+
+                done();
+            });
         });
     });
 
@@ -177,6 +463,42 @@ describe("ViewController", () => {
             await sleep();
 
             expect(values).toEqual(["duux", "poink"]);
+        });
+
+        it("should NOT throw exception if $get is called when parent ViewModel is unmounted", async () => {
+            let exception, treff, fumbo;
+
+            const tree = mount(
+                <MountContainer>
+                    <ViewModel initialState={{ treff: "xongo", fumbo: "nuk" }}
+                        controller={{
+                            unmount: async ({ $get }) => {
+                                // This should not throw
+                                treff = $get('treff');
+
+                                await sleep(10);
+
+                                try {
+                                    fumbo = $get('fumbo');
+                                }
+                                catch (e) {
+                                    exception = e;
+                                }
+                            },
+                        }} />
+                </MountContainer>
+            );
+
+            await sleep();
+
+            const container = tree.find('MountContainer').instance();
+            container.setState({ mounted: false });
+            tree.update();
+            await sleep(10);
+
+            expect(treff).toBe('xongo');
+            expect(fumbo).toBe('nuk');
+            expect(exception).not.toBeDefined();
         });
 
         it("should not allow setting key value in unmount handler", async () => {
@@ -550,7 +872,13 @@ describe("ViewController", () => {
             tree.update();
             await sleep(10);
 
-            setter('wiffle', 'wuckleberry');
+            try {
+                await setter('wiffle', 'wuckleberry');
+            }
+            catch (e) {
+                expect(e instanceof ViewModelUnmountedError).toBe(true);
+            }
+
             tree.update();
             await sleep(10);
 
@@ -964,6 +1292,142 @@ describe("ViewController", () => {
             `);
 
             done();
+        });
+
+        describe("ViewModel is unmounted while event handler is running", () => {
+            it("should throw exception in $get", async done => {
+                let exception;
+
+                const tree = mount(
+                    <MountContainer>
+                        <ViewModel initialState={{ hsa: "pukka" }}
+                            controller={{
+                                handlers: {
+                                    trept: async ({ $get }) => {
+                                        await sleep(10);
+
+                                        try {
+                                            $get('hsa');
+
+                                            done.fail("Exception should have been thrown!");
+                                        }
+                                        catch (e) {
+                                            exception = e;
+                                        }
+                                    },
+                                },
+                            }} />
+                    </MountContainer>
+                );
+
+                await sleep();
+
+                const model = tree.find('ViewModel').instance();
+                model.$dispatch('trept');
+
+                await sleep();
+
+                const container = tree.find('MountContainer').instance();
+                container.setState({ mounted: false });
+                tree.update();
+
+                await sleep(10);
+
+                expect(exception instanceof ViewModelUnmountedError).toBe(true);
+
+                done();
+            });
+
+            it("should throw exception in $set", async done => {
+                let exception, gdan;
+
+                const tree = mount(
+                    <MountContainer>
+                        <ViewModel initialState={{ gdan: "hjukk" }}
+                            controller={{
+                                handlers: {
+                                    aippo: async ({ $get, $set }) => {
+                                        gdan = $get('gdan');
+
+                                        await sleep(10);
+
+                                        try {
+                                            $set('gdan', 'jupz');
+
+                                            done.fail("Exception should have been thrown!");
+                                        }
+                                        catch (e) {
+                                            exception = e;
+                                        }
+                                    },
+                                },
+                            }} />
+                    </MountContainer>
+                );
+
+                await sleep();
+
+                const model = tree.find('ViewModel').instance();
+                model.$dispatch('aippo');
+
+                await sleep();
+
+                const container = tree.find('MountContainer').instance();
+                container.setState({ mounted: false });
+                tree.update();
+                await sleep(10);
+
+                expect(gdan).toBe('hjukk');
+                expect(exception instanceof ViewModelUnmountedError).toBe(true);
+
+                done();
+            });
+
+            it("should throw exception in $dispatch", async done => {
+                let exception;
+
+                const tree = mount(
+                    <MountContainer>
+                        <ViewModel initialState={{ kerrle: "qtuff" }}
+                            controller={{
+                                handlers: {
+                                    plyuk: async ({ $dispatch }) => {
+                                        await sleep(10);
+
+                                        try {
+                                            $dispatch('zeppr');
+
+                                            done.fail("Exception should have been thrown!");
+                                        }
+                                        catch (e) {
+                                            exception = e;
+                                        }
+                                    },
+                                    zeppr: jest.fn(() => {}),
+                                },
+                            }} />
+                    </MountContainer>
+                );
+
+                const controller = tree.find('ViewController').instance();
+                const zepprHandler = controller.props.handlers.zeppr;
+                expect(typeof zepprHandler).toBe('function');
+
+                const model = tree.find('ViewModel').instance();
+                model.$dispatch('plyuk');
+
+                await sleep();
+
+                const container = tree.find('MountContainer').instance();
+                container.setState({ mounted: false });
+                tree.update();
+                await sleep(10);
+
+                expect(zepprHandler).not.toHaveBeenCalled();
+                expect(exception instanceof ViewModelUnmountedError).toBe(true);
+
+                done();
+            });
         });
     });
 

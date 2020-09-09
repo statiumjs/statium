@@ -225,7 +225,7 @@ describe("ViewModel component", () => {
 
                     render() {
                         if (!this.state.mounted) {
-                            return null;
+                            return <div>not mounted</div>
                         }
 
                         return (
@@ -244,13 +244,17 @@ describe("ViewModel component", () => {
                     const container = tree.find('Container').instance();
                     const model = tree.find('ViewModel').instance();
 
-                    container.setState({ mounted: false });
                     model.$set('dmurr', 'fruckle');
+                    container.setState({ mounted: false });
 
                     tree.update();
                     await sleep(10);
 
-                    expect(model.$get('dmurr')).toBe('enge');
+                    expect(tree.find('div')).toMatchInlineSnapshot(`
+                    <div>
+                      not mounted
+                    </div>
+                    `);
                     expect(console.error).not.toHaveBeenCalled();
                 });
             });

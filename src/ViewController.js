@@ -1,15 +1,33 @@
 import React from 'react';
 
-import { Context, rootViewController } from './context';
-import { accessorType } from './accessors';
-import { getId, findOwner, defer as doDefer } from './util';
+import { Context, rootViewController, ViewModelUnmountedError } from './context.js';
+import { accessorType } from './accessors.js';
+import { getId, findOwner, defer as doDefer } from './util.js';
 
-// The purpose of this function is to expose an API while decoupling from the actual
-// ViewController context object.
+export const exceptionificate = (fn, vm) => {
+    const exceptionificatedFn = (...args) => {
+        if (!vm.unmounted) {
+            return fn(...args);
+        }
+
+        const type = fn[accessorType];
+
+        throw new ViewModelUnmountedError(
+            `Cannot call ${type} function on ViewModel "${vm.id}", it is unmounted`
+        );
+    };
+
+    exceptionificatedFn[accessorType] = fn[accessorType];
+
+    return exceptionificatedFn;
+};
+
+// The purpose of this function is to expose an API while decoupling
+// from the actual ViewController context object.
 export const expose = ({ vm, $get, $set, $dispatch }) => ({
-    $get: $get || vm.$get,
-    $set: $set || vm.$set,
-    $dispatch,
+    $get: exceptionificate($get || vm.$get, vm),
+    $set: exceptionificate($set || vm.$set, vm),
+    $dispatch: exceptionificate($dispatch, vm),
 });
 
 export const invalidSet = () => {
@@ -41,7 +59,7 @@ const dispatcher = ({ vc, protectedKey, event, payload }) => {
             vc.$set[accessorType] = 'protectedSet';
         }
         
-        return vc.deferDispatch(handler, vc, ...payload);
+        return vc.defer(handler, vc, true, ...payload);
     }
     else {
         return rootViewController.$dispatch(event, ...payload);
@@ -70,8 +88,7 @@ export class ViewController extends React.Component {
                 ;
         
         this.timerMap = new Map();
-        this.deferDispatch = this.deferDispatch.bind(this);
-        this.deferHandler = this.deferHandler.bind(this);
+        this.defer = this.defer.bind(this);
         this.runRenderHandlers = this.runRenderHandlers.bind(this);
 
         this.state = { error: null };
@@ -80,6 +97,15 @@ export class ViewController extends React.Component {
     componentWillUnmount() {
         const { unmount } = this.props;
 
+        for (const timer of this.timerMap.values()) {
+            clearTimeout(timer);
+        }
+        
+        this.timerMap.clear();
+
+        // eslint-disable-next-line react/no-direct-mutation-state
+        this.timerMap = this.defer = this.runRenderHandlers = this.state = null;
+
         if (typeof unmount === 'function') {
             // We do not allow dispatching events or setting key values
             // in the unmount handler. It's read only.
@@ -87,26 +113,26 @@ export class ViewController extends React.Component {
             // and anything writeable might lead to inconsistent state.
             // Considering that the purpose of the unmount handler is to
             // provide a way to clean up external resources, this makes
-            // total sense (well, at this moment).
+            // total sense (well, at least presently).
             unmount({
                 $get: this.$get,
                 $set: invalidSet,
                 $dispatch: invalidDispatch,
             });
         }
-
-        for (const timer of this.timerMap.values()) {
-            clearTimeout(timer);
-        }
-        
-        this.timerMap.clear();
     }
 
     execute(fn, vc, args, resolve, reject) {
         const ok = result => resolve && resolve(result);
 
         const nok = error => {
-            this.setState({ error });
+            // This error is thrown when upstream ViewModel has been unmounted.
+            // When that happens, this controller instance is either already
+            // unmounted, or will be unmounted very soon, and next rendering
+            // will never happen.
+            if (!(error instanceof ViewModelUnmountedError)) {
+                this.setState({ error });
+            }
 
             // We need to reject the Promise returned from $dispatch
             // call; it makes sense to assume that the code calling it
@@ -130,38 +156,31 @@ export class ViewController extends React.Component {
         }
     }
 
-    deferHandler(fn, vc, ...args) {
-        let timer = this.timerMap.get(fn);
+    defer(fn, vc, wantPromise, ...args) {
+        let timer = this.timerMap.get(fn),
+            promise;
         
         if (timer) {
             clearTimeout(timer);
             this.timerMap.delete(fn);
         }
-        
-        timer = doDefer(() => { this.execute(fn, vc, args); });
+
+        if (wantPromise) {
+            promise = new Promise((resolve, reject) => {
+                timer = doDefer(() => {
+                    this.execute(fn, vc, args, resolve, reject);
+                });
+            });
+        }
+        else {
+            timer = doDefer(() => { this.execute(fn, vc, args); });
+        }
 
         this.timerMap.set(fn, timer);
-    }
-    
-    deferDispatch(fn, vc, ...args) {
-        let timer = this.timerMap.get(fn);
-        
-        if (timer) {
-            clearTimeout(timer);
-            this.timerMap.delete(fn);
-        }
-        
-        const promise = new Promise((resolve, reject) => {
-            timer = doDefer(() => {
-                this.execute(fn, vc, args, resolve, reject);
-            });
-        });
-        
-        this.timerMap.set(fn, timer);
-        
+
         return promise;
     }
-    
+
     runRenderHandlers(vc, props) {
         const me = this;
         
@@ -184,7 +203,7 @@ export class ViewController extends React.Component {
                 
                 // We have to defer executing the function because setting state
                 // is prohibited during rendering cycle.
-                me.deferHandler(initializeWrapper, vc);
+                me.defer(initializeWrapper, vc);
             }
             else {
                 me.$initialized = true;
@@ -194,7 +213,7 @@ export class ViewController extends React.Component {
             // Same as `initialize`, we need to run `invalidate`
             // out of event loop.
             if (typeof invalidate === 'function') {
-                me.deferHandler(invalidate, vc);
+                me.defer(invalidate, vc);
             }
         }
     }
@@ -218,7 +237,7 @@ export class ViewController extends React.Component {
                 parent: parentVc,
                 vm,
                 handlers,
-                deferDispatch: me.deferDispatch,
+                defer: me.defer,
             });
             
             // ViewModel needs dispatcher reference to fire events
@@ -231,7 +250,12 @@ export class ViewController extends React.Component {
                 $viewModelInstance.$dispatch = vc.$dispatch;
             }
 
-            // ViewController needs $get to fire unmount event
+            // ViewController needs $get to fire unmount event.
+            // Note that this.$get reference is *only* used for that case,
+            // and as the result is not exceptionificated to allow reading
+            // from parent ViewModel even if it is unmounted. Since the
+            // `unmount` event is intended for resource clean-up, not allowing
+            // to read from the parent ViewModel would sort of defeat the purpose.
             me.$get = vm.$get;
             
             // We *need* to run initialize and invalidate handlers during rendering,

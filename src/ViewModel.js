@@ -87,7 +87,12 @@ class ViewModel extends React.Component {
     }
 
     componentWillUnmount() {
-        this.unmounted = true;
+        this.unmounted = this.props.vm.unmounted = true;
+
+        this.setViewModelState = this.getKeySetter = this.protectedKeys = null;
+
+        // eslint-disable-next-line react/no-direct-mutation-state
+        this.state = this.$get = this.$set = this.$dispatch = null;
     }
     
     componentDidUpdate() {

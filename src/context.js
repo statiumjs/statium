@@ -1,5 +1,13 @@
 import React from 'react';
 
+export class ViewModelUnmountedError extends Error {
+    constructor(...args) {
+        super(...args);
+
+        this.isViewModelUnmounted = true;
+    }
+}
+
 const error = msg => {
     if (process.env.NODE_ENV === 'production') {
         console.error(msg);

@@ -1,3 +1,4 @@
+export { ViewModelUnmountedError } from './context.js';
 export { ViewModelWrapper as default } from './ViewModel.js';
 export { ViewController } from './ViewController.js';
 export { Bind } from './Bind.js';
