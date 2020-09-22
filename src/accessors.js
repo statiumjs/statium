@@ -22,7 +22,7 @@ const getStateKeyOwner = (vm, key) => {
     // This means we can't set it.
     if (owner === null) {
         throw new Error(
-            `Cannot find owner ViewModel for key ${key}. You need to provide ` +
+            `Cannot find owner ViewModel for key ${String(key)}. You need to provide ` +
             `initial value for this key in "initialState" prop.`
         );
     }
@@ -161,7 +161,7 @@ export const validateInitialState = (state, vm) => {
 
                 if (owner) {
                     console.warn(`initialState for ViewModel "${vm.id}" ` +
-                                    `contains key "${key}" that overrides ` +
+                                    `contains key "${String(key)}" that overrides ` +
                                     `data key with similar name provided by ` +
                                     `ViewModel "${owner.id}".`);
                 }
@@ -172,7 +172,7 @@ export const validateInitialState = (state, vm) => {
                 
                 if (owner) {
                     console.warn(
-                        `initialState for ViewModel "${vm.id}" contains key "${key}" ` +
+                        `initialState for ViewModel "${vm.id}" contains key "${String(key)}" ` +
                         `that overrides another state key with similar name ` +
                         `provided by parent ViewModel "${owner.id}".`
                     );
