@@ -83,8 +83,9 @@ export const normalizeBindings = (bindings = {}, variadic) => {
             };
         }
         else {
-            // TODO Better error handling
-            throw new Error('Invalid bound prop definition');
+            throw new Error('Invalid bound prop definition: propName is ' +
+                            JSON.stringify(propName) + ', binding is: ', +
+                            JSON.stringify(binding));
         }
     });
 };
