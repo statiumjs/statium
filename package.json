@@ -1,52 +1,46 @@
 {
   "name": "statium",
-  "version": "0.5.3",
-  "description": "Pragmatic state management for React applications",
+  "version": "1.0.0",
+  "description": "Painless state management for React",
   "main": "dist/index.js",
+  "type": "module",
   "module": "dist/index.esm.js",
-  "module-es6+": "dist/index.es6.js",
   "scripts": {
-    "build": "rollup -c",
+    "build": "NODE_ENV=production rollup -c",
     "dev": "rollup -c -w",
     "lint": "eslint src test",
     "test": "jest",
     "prebuild": "yarn run lint",
     "pretest": "yarn run build"
   },
-  "dependencies": {
-    "lodash.clone": "^4.5.0",
-    "lodash.get": "^4.4.2",
-    "lodash.has": "^4.5.2",
-    "lodash.set": "^4.3.2"
-  },
+  "dependencies": {},
   "peerDependencies": {
-    "react": "^16.4.0",
-    "react-dom": "^16.11.0"
+    "react": "^16.4.0 || ^17",
+    "react-dom": "^16.11.0 || ^17"
   },
   "devDependencies": {
-    "@babel/preset-env": "^7.10.4",
-    "@babel/preset-react": "^7.10.4",
-    "@babel/runtime": "^7.10.5",
-    "@sucrase/jest-plugin": "^2.0.0",
-    "babel-eslint": "^10.1.0",
+    "@babel/eslint-parser": "^7.15.8",
+    "@babel/preset-env": "^7.15.8",
+    "@babel/preset-react": "^7.14.5",
+    "@babel/runtime": "^7.15.4",
+    "@rollup/plugin-babel": "^5.3.0",
+    "babel-jest": "^27.2.5",
     "enzyme": "^3.11.0",
-    "enzyme-adapter-react-16": "^1.15.2",
-    "enzyme-to-json": "^3.5.0",
-    "eslint": "^7.4.0",
-    "eslint-plugin-import": "^2.22.0",
-    "eslint-plugin-jest": "^23.18.0",
-    "eslint-plugin-promise": "^4.2.1",
-    "eslint-plugin-react": "^7.20.3",
-    "eslint-plugin-react-hooks": "^4.0.8",
-    "jest": "^26.1.0",
+    "enzyme-adapter-react-16": "^1.15.6",
+    "enzyme-to-json": "^3.6.2",
+    "eslint": "^8.0.0",
+    "eslint-plugin-import": "^2.25.2",
+    "eslint-plugin-jest": "^25.0.5",
+    "eslint-plugin-promise": "^5.1.0",
+    "eslint-plugin-react": "^7.26.1",
+    "eslint-plugin-react-hooks": "^4.2.0",
+    "jest": "^27.2.5",
+    "lodash-es": "^4.17.21",
     "react": "^16.4.0",
     "react-dom": "^16.11.0",
-    "rollup": "^2.21.0",
-    "rollup-plugin-babel": "^4.4.0",
-    "rollup-plugin-commonjs": "^10.1.0",
-    "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup-plugin-sucrase": "^2.1.0",
-    "sucrase": "^3.15.0"
+    "reselect": "^4.0.0",
+    "rollup": "^2.58.0",
+    "rollup-plugin-cleanup": "^3.2.1"
   },
   "files": [
     "dist"
@@ -64,11 +58,12 @@
     "snapshotSerializers": [
       "enzyme-to-json/serializer"
     ],
+    "testEnvironment": "jsdom",
     "transform": {
-      ".(js|jsx|ts|tsx)": "@sucrase/jest-plugin"
+      "^.+\\.js$": "babel-jest"
     }
   },
-  "repository": "git@github.com:riptano/statium.git",
+  "repository": "git@github.com:statiumjs/statium.git",
   "author": "Alex Tokarev",
-  "license": "Apache-2.0"
+  "license": "MIT"
 }

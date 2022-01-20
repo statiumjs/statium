@@ -1,505 +1,582 @@
 # Statium
 
-Pragmatic state management for React applications
-
-## Synopsis
-
-```javascript
-import React from 'react';
-import ViewModel, { Bind } from 'statium';
-import { Form, InputField, validate } from 'some-form-ui';
-
-const PasswordForm = () => (
-    <ViewModel
-        initialState={{ password1: '', password2: '', errors: [] }}
-        applyState={
-            state => ({
-                ...state,
-                errors: validate(state),
-            })
-        }>
-        
-        <Bind props={[ ['password1', true], ['password2', true], errors ]}>
-            { ({ password, setPassword1, password2, setPassword2, errors }) => (
-                <Form>
-                    <InputField label="Enter password"
-                        value={password1}
-                        onChange={e => { setPassword1(e.target.value); }} />
-            
-                    <InputField label="Confirm password"
-                        value={password2}
-                        onChange={e => { setPassword2(e.target.value); }} />
-            
-                    { errors.length > 0 && errors.map(error => <div>{error}</div>) }
-                </Form>
-            )}
-        </Bind>
-    </ViewModel>
-);
-```
+Painless state management for React: pragmatic, non-opinionated, lightweight, blazing fast, natively asynchronous, 100% tested and with zero dependencies!
 
 ## Installation
 
-`yarn add statium`
+`npm i statium` or `yarn add statium`
 
 ## Overview
 
-The idea behind Statium is to keep simple things simple and make hard things manageable.
+State is contained in a Store, which is a React component implementing a hierarchically chained key/value storage with a few additional features. Child Components make use of the state values by reading from the Store and calling the provided setter function to update state values. Calling the setter function with a value will update the owner Store and re-render and its children components.
 
-Component state is contained in a `ViewModel`, which is a React Component implementing a
-hierarchically scoped key/value store with a few additional features. Consumer Components
-make use of the values by _binding_ to keys they need, and receive the values along with
-setter functions for these values, if requested. Calling the setter function with a value
-will update the store and re-render the owner `ViewModel` and its children components.
+![Store hierarchy diagram](docs/hierarchy.png)
 
-All `ViewModels` are connected in a chain from parent to child, and each child `ViewModel`
-has access to its ancestors' store values throughout the tree. When a setter function
-is called for a given state key, it will climb the `ViewModel` tree, find the store owner
-that the key belongs to, and update the state in that owner. Thus, the state changes are
-always contained to the least possible component subtree, and only the affected subtree
-is rendered upon the change.
+All Stores are connected in a chain from parent to child, and each child Store has access to its ancestors' keys throughout the tree. When a setter function is called, it will climb the `Store` tree, find stores that updated keys belong to, and update the state in these owners. State changes are always contained to the least possible component subtree, and only the affected subtree is rendered upon the change.
 
-Besides the `ViewModel`, Statium provides the `ViewController` component that helps in
-controlling asynchronous application logic flow. A `ViewController` is always bound to
-its parent `ViewModel`, i.e. it can read its (and its parents) store, and can set
-the state values. It can also listen to _events_ dispatched by consumer Components,
-and invoke _handlers_ that implement custom logic beyond the simple value assignment.
+![Store update diagram](docs/store_update.png)
 
-## Data binding
+Besides managing state values, Store component implement handling _actions_ that help in managing asynchronous application logic flow. Action handler functions can access their owner Store state (and its parents' state), as well as updating state values and dispatching other actions.
 
-A store of values is not very useful by itself, unless it can be accessed in an easy
-and predictable manner. In Statium, this is done by _binding_, or subscribing to,
-`ViewModel` keys. This can be done in three similar ways, differing only in minor
-details:
+## State management
 
-* By calling [`useBindings`](docs/useBindings.md) hook in your functional component;
-* By using [`withBindings`](docs/withBindings.md) Higher Order Component to inject
-the requested values and setters into Component props;
-* Or by using the [`Bind`](docs/Bind.md) Component that accepts a function as a child,
-and passes the requested values and setters into that function's arguments.
+Statium provides a simple and consistent API for initializing, accessing, and manipulating state values, supporting both functional and class based React components.
 
-Bindings are defined as mapping of _keys_ from the `ViewModel` store to _props_
-injected into Component's props (or `Bind` child function arguments), e.g.:
+Statium Store itself is a React component that follows the common lifecycle. When a Store is mounted, it populates its state with the initial values provided in the `initialState` prop and sets up an object that is linked to parent Store's state object via prototype chain, so that every child component of a Store has access to all state values provided by parent Stores.
+The state object's identity is stable and does not change throughout the Store lifecycle, ensuring that reading from it will produce current values after state updates have completed.
+
+Reading state values is done directly from the state object, and if the key name is not defined in any parent Store, an exception will be thrown:
 
 ```javascript
-import { withBindings } from 'statium';
+import Store from 'statium';
 
-const Component = ({ foo, onChangeFoo, bar }) => (
-    { /*
-        Do something to render foo and bar values;
-        call onChangeFoo(newFoo) whenever foo needs to be updated
-    /* }
-);
-
-const BoundComponent = withBindings({
-    // Map `value` component prop to `foo` key in ViewModel store, and request
-    // a setter function for it (named `setFoo` by default but we rename it here).
-    // Both `value` and `onChangeFoo` are injected into Component props at rendering.
-    value: {
-        key: 'foo',
-        publish: true,
-        setterName: 'onChangeFoo',
-    },
-    bar: 'barKey',
-})(MyComponent);
-```
-
-`useBindings` hook works similarly but the calling convention is a little different
-by default, to accommodate for React Hooks stylistic:
-
-```javascript
-import { useBindings } from 'statium';
-
-const Component = () => {
-    // Binding definition ['bar', true] is a shortcut for { key: 'bar', publish: true }.
-    // The [value, setterFn] tuple is returned in an array, a la `useState` React hook.
-    const [foo, [bar, setBar]] = useBindings('foo', ['bar', true]);
-
-    ...
-};
-```
-
-It is also possible to call [`useBindings`](docs/useBindings.md) with binding definitions
-in an object, the same way as [`withBindings`](docs/withBindings.md), and
-[`Bind`](docs/Bind.md) component. The result is going to be also an object. More about
-binding syntax can be found [here](docs/bindings.md).
-
-## ViewModel in depth
-
-Storing component state is the primary task for a `ViewModel`, but not the only one.
-Let's review some use cases common to UI development that `ViewModel` accommodates for:
-
-### Static data
-
-In many cases, there is a need to give individual Components access to certain pieces
-of data available in some places up the tree. A feature flag option from external
-service, or `history` and `match` props if you are using `react-router`, or simply
-a constant defined somewhere that you need to spread to child components. `ViewModel`
-makes this easy by passing an object with key/value pairs in the `data` prop:
-
-```javascript
-const Container = ({ foo, bar }) => (
-    <ViewModel data={{ foo, bar }}>
-        ... // `foo` and `bar` values are now available for binding downstream
-    </ViewModel>
+const Component = () => (
+  <Store tag="Grandparent" initialState={{ foo: "bar" }}>
+    <Store tag="Parent" initialState={{ qux: "baz" }}>
+    { ({ state }) => {
+      console.log(`foo: ${state.foo}`); // bar
+      console.log(`qux: ${state.qux}`); // baz
+      console.log(`frob: ${state.frob}`); // throws an exception: key not found
+    }}
+    </Store>
+  </Store>
 );
 ```
 
-In fact, the `ViewModel` _store_ that we discussed above consists of both _data_
-and _state_ parts, combined thusly:
-
-    const store = { ...data, ...state };
-
-It is possible to have some `ViewModels` in the hierarchy to provide only data,
-and some only state, and some a combination of both. The static data is considered
-read-only, and trying to request a setter function for a `data` key will throw
-an exception.
-
-### Computed values
-
-Another very common use case is when a value is the result of some computation, e.g.
-checking form validity after a value change, extracting a specific property out of
-an object contained in the state, or combining strings to produce a user greeting.
-This can be easily solved by using `ViewModel` _formulas_:
+Updating state values can be done by calling the `set` function:
 
 ```javascript
 const Component = () => (
-    <ViewModel initialState={{ first: 'Foo', last: 'Barootsky' }}
-        formulas={{
-            fullName: $get => $get('first') + ' ' + $get('last'),
-        }}>
-    
-        <Bind props="fullName">
-            { ({ fullName }) => (
-                <div>Hello, {fullName}!</div>
-            )}
-        </Bind>
-    </ViewModel>
+  <Store initialState={{ glop: "hloom" }}>
+  { ({ state, set }) => (
+    <>
+      <div>glop: {state.glop}</div>
+
+      <button onClick={() => set({ glop: "zorg" })}>
+        zorg!
+      </button>
+    </>
+  )}
+  </Store>
 );
 ```
 
-A formula is simply a function that receives _getter_ function as its first and only
-argument. Calling the getter with the desired key names will return the values -
-which can invoke other formulas! - and the formula should itself return the computed value.
+The setter function accepts an object with key/value pairs to set. It will climb the Store chain, find the owner Stores for the keys and update their state with the provided values. Updates are batched so that even if more than one Store was updated, only one rendering will follow.
 
-Another way to compute values is to use _inline formulas_ defined in bindings, which
-allows using local variables or do things specific to some Component:
+### Consuming state in child components
+
+In order to support both functional and class based React code in a way that is convenient for each case, Statium provides more than one approach to consuming state contained in parent Stores. There are four options to consume Store state:
+
+* By calling [`useStore` hook](docs/useStore.md) in functional components:
 
 ```javascript
-const baz = 42;
+import { useStore } from 'statium';
 
-const Component = ({ foo }) => (
-    ...
-);
+const Component = () => {
+  const { data, state, set, dispatch } = useStore();
 
-const BoundComponent = withBindings({
-    foo: $get => $get('bar') + baz;
-})(Component);
+  ...
+};
 ```
 
-See more in [Formulas](docs/formulas.md).
-
-### Working with ViewModel state
-
-Often times the component state should come from an external source, like application
-URL `search` portion. In such cases it is also desirable to persist the state changes
-back to the URL. `ViewModel` accommodates for it by accepting a function as `initialState`
-prop, as well as providing the `observeStateChange` lifecycle method that is called
-upon any change to the state of owner `ViewModel`.
-
-Example:
+* By utilizing [`useState` hook](docs/useState.md) in functional components:
 
 ```javascript
-import ViewModel, { Bind} from 'statium';
+import { useState } from 'statium';
+
+const Component = () => {
+  // API is similar to React.useState hook, with optional second argument
+  // that defines the state key name for this value. This is useful for testing
+  // as well as accessing this state in child components.
+  const [foo, setFoo] = useState('qux', 'foo');
+
+  return (
+    <>
+      <div>foo: {foo}</div>
+      <button onClick={() => setFoo('plugh')}>Click me!</button>
+    </>
+  );
+};
+```
+
+* By wrapping your components in a [`bind()`](docs/bindHoc.md) higher order component that accepts two optional arguments `mapStoreToProps` and `bindStoreToProps`:
+
+```javascript
+import { bind } from 'statium';
+
+const Component = ({ foo, bar, setFoo }) => (
+  { /*
+    Do something to render foo and bar values;
+    call setFoo(newValue) whenever foo needs to be updated
+  */ }
+);
+
+const selectors = {
+  foo: ({ state }) => state.foo,
+  bar: ({ state }) => state.bar,
+};
+
+const actionables = {
+  setFoo: ({ set }, value) => set({ foo: value }),
+};
+
+const ComponentWithStore = bind(selectors, actionables)(Component);
+```
+
+With no arguments, [`bind()`](docs/bindHoc.md) will simply inject the store API object as a prop in the wrapped component:
+
+```javascript
+import { bind } from 'statium';
+
+const Component = ({ store: { data, state, set, dispatch } }) => (
+  ...
+);
+
+const ComponentWithStore = bind()(Component);
+```
+
+* By using [`Bind`](docs/Bind.md) component with a child function that receives Store public API object:
+
+```javascript
+import Store, { Bind } from 'statium';
+
+const Container = () => (
+  <Store initialState={{ foo: "blerg" }}>
+    <Component />
+  </Store>
+);
+
+const Component = () => (
+  <Bind>
+  { ({ state, set }) => (
+    <>
+      <div>foo: {state.foo}</div>
+
+      <button onClick={() => set({ foo: "krabble" })}>
+        Click me!
+      </button>
+    </>
+  )}
+  </Bind>
+);
+```
+
+All these except [`useState` hook](docs/useState.md) work in the same way: they find the nearest parent Store and return a reference to its public API object, or values from the Store ([`bind` HOC](docs/bindHoc.md)).
+
+`useState` hook is a bit different: besides finding the nearest parent Store, it uses the parent to dynamically initialize a state key (once), and returns the current value as well as the setter function for this value. This API is very similar to `React.useState` hook, however the actual state values are kept in the parent Store with the corresponding ability to access them from outside of the component as well as providing the initial value that differs from the one hardcoded in the `useState` hook call. See more examples in [`useState` hook documentation](docs/useState.md).
+
+### Initializing state
+
+Store component accepts the `initialState` prop that should contain either an object with key/value pairs, or a function that returns an object with state keys and values; string and Symbol keys are supported. All keys that are provided by this Store should be present in the `initialState` prop object (or the result of initializer function invocation), and it is a good practice to set default values that make sense for your component.
+
+There are two reasons for this requirement:
+* The values provided by the Store might be used when rendering child Components, which is likely to happen shortly after rendering the Store itself within the same event loop.
+* When updating state, Statium needs to find the Store that owns a key with the given name, so it should be present in the state of some Store up the tree. If the key name is not found, an exception will be thrown.
+
+### Handling key name collisions
+
+Prototype chaining of state objects makes it possible for a child Store to define a key with a name that one of the parent Stores already provides, and shadow the parent value with the child value. Most often this is accidental, and Statium will print a console warning indicating which parent Store defines the key and which child Store overrides it.
+
+In order to make sure that no collisions are possible, use Symbol keys instead:
+
+```javascript
+const foo = Symbol('foo');
+const qux = Symbol('qux');
+
+const initialState = {
+  [foo]: "bar",
+  [qux]: 42,
+};
+
+const Component = () => (
+  <Store initialState={initialState}>
+  { ({ state: { [foo]: foo, [qux]: qux }) => {
+    console.log(`foo: ${foo}, qux: ${qux}`); // foo: bar, qux: 42
+  }}
+  </Store>
+);
+```
+
+### Dynamic state initialization
+
+The initializer function will be called synchronously during Store construction and will be passed an object with two properties: `data` and `state`, containing the data provided by the Store that is being initialized and its parents, and state provided by the parent Stores. The state object returned from the initializer function should contain all keys and initial values provided by this Store.
+
+```javascript
+const initState = ({ data, state }) => {
+  const { foo, bar } = readFromLocalStorage();
+
+  return {
+    foo,
+    bar,
+  };
+};
+
+const Component = () => (
+  <Store initialState={initState}>
+   { ... }
+  </Store>
+);
+```
+
+The initializer function is expected to be pure without side effects; if you need to perform some actions upon Store initialization, such as fetching data from the back end, use `React.useEffect` hook or some other option.
+
+### Modifying Store state updates
+
+What if we needed to apply some logic to `Store` state updates? Something simple like this: if `foo` changes, then `bar` needs to be set to `null`, or run validation function on every change, etc.
+
+The `controlStateChange` prop allows doing this easily by executing the provided function on every Store state change _before_ the new values have been applied to the current state, and applying the result values to the _changeset_:
+
+```javascript
+const validateState = nextState => {
+  const { password1, password2 } = nextState;
+
+  if (password1 !== password2) {
+    // The return value is an object and we don't have to return
+    // full nextState object: only the actual bits that we want changed!
+    // Returning the full state is not an error but it is not required.
+    // This will be merged with nextState before updating the Store state.
+    return {
+      errors: ['Passwords do not match'],
+    };
+  }
+};
+
+const initialState = {
+  password1: '',
+  password2: '',
+  errors: [],
+};
+
+const Component = () => (
+  <Store initialState={initialState} controlStateChange={validateState}>
+  { ({ state, set }) => (
+    <Form>
+      <PasswordInput label="Enter password"
+          value={state.password1}
+          onChange={value => { set('password1', value) }} />
+      
+      <PasswordInput label="Confirm password"
+          value={state.password2}
+          onChange={value => { set('password2', value) }} />
+      
+      { state.errors.map(error => <div>{error}</div>) }
+    </Form>
+  )}
+  </Store>
+);
+```
+
+See more in [Store documentation](docs/Store.md#controlStateChange).
+
+## Read only data
+
+In many cases, there is a need to give individual Components access to application state that is not managed by Statium, or bits of data available in some places up the tree. A feature flag option from external service, URI parameters if you are using `react-router`, or simply a value calculated somewhere that you need to spread to child components; Statium makes this easy by passing an object with key/value pairs in the `data` prop to a Store:
+
+```javascript
+const Container = ({ foo, bar }) => (
+  <Store data={{ foo, bar }}>
+  { ({ data }) => {
+    // This will print the current values of foo and bar
+    // passed into Container props every time it is rendered
+    console.log(`foo: ${data.foo}`);
+    console.log(`bar: ${data.bar}`);
+  }}
+  </Store>
+);
+```
+
+Like state, data is hierarchical: all child Stores have access to the data key/value pairs provided by their parent Stores. Like state, the `data` object passed in the public Store API is stable and can be read from synchronously.
+
+Unlike state, data is not managed by the Store and cannot be modified by calling `set()`; use action handlers instead to update the original source of that data key (e.g. URI parameter). Data is always current and reading from the `data` object always returns the values that were passed to the Store providing these values at the time it was last rendered. This is also unlike state which is initialized only once.
+
+It is possible to have some Stores in the component tree to provide only data, and some only state, and some a combination of both (or neither); there are no limitations.
+
+## Statium and URL routing
+
+Stores naturally follow the tree structure of React components that comprise your application and make it easy to compartmentalize the state with the components that use it. When a Store is not rendered its state does not exist; when a Store is unmounted its state is destroyed and garbage collected. This is particularly useful when the application state needs to be synchronized with the page URL.
+
+Supposing that in the example diagram below, the `Router` component will render either `PageFoo` or `PageBar` components based on the URL route and correspondingly, either `StoreFoo`'s or `StoreBar`'s state will exist at any given time:
+
+![Route based Store tree](docs/store_tree.png)
+
+In this example we are using `react-router` and Statium to make global route parameters available throughout the application. Note that we are passing these parameters to the Store `data` instead of state; this is because URL routing parameters are external to Statium and cannot be managed as a piece of internal state.
+
+```javascript
+import Store from 'statium';
+import { Switch, Route as BaseRoute } from 'react-router-dom';
+
+import PageFoo from './PageFoo.js';
+import PageBar from './PageBar.js';
+
+const Route = ({ children, moduleId, ...props }) => (
+  <BaseRoute {...props}
+    render={({ history, location, match }) =>
+      // tag prop is optional, it helps with development and testing
+      <Store tag="Route" data={{ moduleId, history, location, ...match.params }}>
+        { children }
+      </Store>
+    }
+  />
+);
+
+const Application = () => (
+  <Switch>
+    <Route moduleId="foo" path="/foo/:fooId/:tabId">
+      {/* keys `fooId` and `tabId` are available in Store's data */}
+      <PageFoo />
+    </Route>
+
+    <Route moduleId="bar" path="/bar/:barId/:subpageId">
+      {/* keys `barId` and `subpageId` are available in Store's data */}
+      <PageBar />
+    </Route>
+  </Switch>
+);
+```
+
+The URL parameters are then available in Store's `data` in every child of the respective Route regardless of the component tree depth:
+
+```javascript
+const PageFoo = () => {
+  <Bind>
+  { ({ data, state }) => {
+    // e.g. URL is /foo/123/xyz
+    console.log(`${data.moduleId}, ${data.fooId}, ${data.tabId}`); // foo, 123, xyz
+  }}
+  </Bind>
+});
+```
+
+### Handling transient state
+
+Most pages in a Web application have some sort of state that is local to that page and cannot be based on the URL routing, e.g. transient input form values. Some of these values can be exposed as optional parameters in the application URL `search` portion to improve user experience, e.g. sort-by and sort order in a table, selected tab in a modal, etc.
+
+The fact that Store is a React component make it very easy to initialize its local state from the URL when the parent component is rendered by passing an initializer function in the `initialState` prop. Persisting local state changes to the URL is equally easy done by using the optional `onStateChange` observer function that Store calls upon completing a state change. This function, if provided, is called synchronously after the Store state update has been completed. The only argument to the observer is the public Store API object; is not expected to return a value.
+
+A helper library for working with the URI search params such as [`urlito`](https://github.com/statiumjs/urlito) makes this short and easy to read:
+
+
+```javascript
+import Store from 'statium';
 import stateToUri from 'urlito';
 import Table from 'some-ui-framework';
 
-// Defaults are assumed if URL param is missing
+// Defaults are assumed if URL search params are not present
 const defaultState = {
-    sort: 'asc',
+  sortColumn: 'column1',
+  sortOrder: 'asc',
 };
 
 const [getStateFromUri, setStateToUri] = stateToUri(defaultState);
 
 const SortedTable = () => (
-    <ViewModel initialState={getStateFromUri} observeStateChange={setStateToUri}>
-        <Bind props={[{ key: 'sort', publish: true }]}>
-            { ({ sort, setSort }) => (
-                <Table sortOrder={sort} onSortOrderChange={setSort}>
-                    ...
-                </Table>
-            )}
-        </Bind>
-    </ViewModel>
+  <Store initialState={getStateFromUri} onStateChange={setStateToUri}>
+  { ({ state: { sortColumn, sortOrder }, set }) => (
+    <Table sortColumn={sortColumn} onSortColumnChange={sortColumn => set({ sortColumn })}>
+      <Column sortOrder={sortOrder} onSortOrderChange={sortOrder => set({ sortOrder })}>
+        ...
+      </Column>
+    </Table>
+  )}
+  </Store>
 );
 ```
 
-When provided as a function, `initialState` will be called at `ViewModel` construction
-time, and is expected to _synchronously_ return a valid object with default state. 
-If asynchronous initialization is desired, a `ViewController` can be used with `initialize`
-prop; keep in mind that `initialState` is still required for feeding child components
-the initial state until asynchronous request completes.
+In this example, `getStateFromUri` and `setStateToUri` functions returned by the `stateToUri` wrapper are used to initialize Store state by reading from URI search params and update URI search params when Store state has changed, respectively.
 
-The purpose of `observeStateChange` is to allow side effects like setting the URL in the
-example above. This function, if provided, is called synchronously upon `ViewModel` state
-change, and is not expected to return any value.
+## Synchronous read, asynchronous write
 
-### Modifying ViewModel state
+Statium Store supports three types of operations: reading from the store, updating the store, and dispatching actions. Reading store values is a normal JavaScript object property lookup operation, it is most often used during child components' rendering phase and is always synchronous.
 
-What if we needed to apply some logic to `ViewModel` state updates? Something simple like
-this: if `foo` changes, then `bar` needs to be set to `null`, or: run validation function
-on every change, etc.
-
-The `applyState` function allows doing exactly this:
+Calling `set` function to update the store is always an asynchronous operation; this is different from many other state management libraries. When `set` is called with new values, it will schedule an update that is not guaranteed to happen in the same event loop cycle and therefore the calling code cannot expect the state to be synchronously updated. To solve this problem, `set` function will return a Promise that is guaranteed to be resolved when Store state is completely updated:
 
 ```javascript
-const validator = state => {
-    const { password1, password2 } = state;
-    
-    if (password1 !== password2) {
-        return {
-            ...state,
-            errors: ['Passwords are not matching!'],
-        };
-    }
+import { fetchPayload } from 'some-package';
+
+const PayloadPage = ({ payload }) => (
+  <div>
+    Payload: {payload}
+  </div>
+);
+
+const LoadingPage = () => (
+  <Store initialState={{ loading: false, payload: null }}>
+  { ({ state, set }) => (
+    <div>
+      { state.loading
+          ? <span>Loading...</span>
+          : <PayloadPage payload={state.payload} />
+      }
+
+      <button onClick={
+        async () => {
+          // This will update state, cause a rendering, and wait until the Promise
+          // is resolved which happens after rendering is finished.
+          await set({ loading: true });
+
+          // At this point the state object is guaranteed to be updated,
+          // and we can read current state values directly from it:
+          console.log(state.loading); // true
+
+          const payload = await fetchPayload();
+
+          // We can update multiple state values at once. While this time awaiting
+          // for the Promise to resolve is not exactly necessary, it is
+          // still a good practice in case you will need to add code below later.
+          await set({
+            loading: false,
+            payload,
+          });
+        }
+      }>
+        Load data
+      </button>
+    </div>
+  )}
+  </Store>
+);
+```
+
+Dispatching actions works in a similar way: `dispatch` is always asynchronous and returns a Promise that is resolved when action handler function finishes. This makes it easy to dispatch other actions from action handlers, and wait for the results before proceeding with the original action.
+
+```javascript
+import { anotherAction } from './another.js';
+
+const actionHandler = async ({ state, set, dispatch }) => {
+  await set({ foo: 'bar' });
+
+  // By the time dispatch() function is called, the state object will have been
+  // updated with the new value, so reading from it will produce 'bar'.
+  await dispatch(anotherAction, state.foo);
+
+  ...
+};
+```
+
+The `dispatch` function also makes it easy to declutter component code and avoid inlining event handlers. Calling `dispatch` with the first argument being a function will schedule an invocation of that function and pass the public Store API to it when it is called, e.g. the payload fetching example above can be rewritten to look much cleaner and be more testable:
+
+```javascript
+import { fetchPayload } from 'some-package';
+
+// Logic can be easily tested in isolation
+export const load = async ({ state, set }) => {
+  await set({ loading: true });
+
+  console.log(state.loading); // true
+
+  const payload = await fetchPayload();
+
+  await set({
+    loading: false,
+    payload,
+  });
+};
+
+const PayloadPage = ({ payload }) => (
+  <div>
+    Payload: {payload}
+  </div>
+);
+
+const LoadingPage = () => (
+  <Store initialState={{ loading: false, payload: null }}>
+  { ({ state, dispatch }) => (
+    <div>
+      { state.loading
+          ? <span>Loading...</span>
+          : <PayloadPage payload={state.payload} />
+      }
+
+      <button onClick={() => dispatch(load)}>Load data</button>
+    </div>
+  )}
+  </Store>
+);
+```
+
+# Actions in depth
+
+Besides state and data, practically any application will have some business logic in it that is too complex to fit into "read this value", "set that value" pattern. In Statium, cases like accessing server side APIs, performing multiple logical steps, etc. are handled by dispatching _action handlers_ in a way that is easy to develop, read, and test.
+
+## Action handlers
+
+An action handler is simply an asynchronous function that accepts one or more arguments, where the first argument is always a reference to a Store public API object:
+
+```javascript
+const actionHandler = async ({ data, state, set, dispatch }, ...args) => {
+  ...
+};
+```
+
+Actions are dispatched from components by passing the action handler function to the `dispatch` function provided in the Store public API object:
+
+```javascript
+import Store from 'statium';
+
+const action = async ({ data, state, set, dispatch }) => {
+  ... // do something
 };
 
 const Component = () => (
-    <ViewModel initialState={{ password1: '', password2: '' }}, applyState={validator}>
-        <Bind props={[
-            { key: 'password1', publish: true },
-            { key: 'password2', publish: true },
-            'errors',
-        ]}>
-            { ({ password1, setPassword1, password2, setPassword2 }) => (
-                <Form>
-                    <PasswordInput label="Enter password"
-                        value={password1}
-                        onChange={setPassword1} />
-                    
-                    <PasswordInput label="Confirm password"
-                        value={password2}
-                        onChange={setPassword2} />
-                    
-                    { errors.map(error => <div>{error}</div>) }
-                </Form>
-            )}
-        </Bind>
-    </ViewModel>
+  <Store>
+  { ({ data, state, set, dispatch }) => (
+    <button onClick={() => dispatch(action)}>
+      Click me!
+    </button>
+  )}
+  </Store>
 );
 ```
 
-See more in [ViewModel documentation](docs/ViewModel.md).
-
-### Protected keys
-
-This use case is not as common as the others discussed above, but is encountered in almost
-every application. Consider a key/value pair where the key should be readable by any
-consumer Component, but _not_ easily writable without going through some validation
-or implementation logic.
-
-One example is a `user` object in applications requiring authentication: details of the user
-(name, user id, email, etc) should be accessible throughout the codebase; setting the
-actual object should be only done via some code that requests authentication from the
-server side (logs in).
-
-In Statium, this can be achieved easily using protected keys feature. _Protected_ in this
-context means that any Consumer can bind to the specified key, but calling the corresponding
-setter function _does not_ set the value directly. Instead, a `ViewController` event
-is dispatched, and the corresponding event handler is called. It is up to the event handler
-implementation to decide what to do, and whether to change or not the actual value
-for the protected key.
-
-Example:
+Action handlers can dispatch other actions using the same approach:
 
 ```javascript
-import ViewModel, { Bind } from 'statium';
-import doLogin from 'some-auth-library';
+import { someOtherHandler } from './otherActions.js';
 
-import LoadingScreen from './LoadingScreen';
-import LoginForm from './LoginForm';
-import AfterLogin from './AfterLogin';
-
-const login = async ({ $set }, info) => {
-    const { username, password } = info;
-    
-    // Setters return a Promise that is resolved when
-    // ViewModel state has finished updating.
-    await $set({ loading: true });
-    
-    // Try to authenticate in some way
-    const authenticatedUser = await doLogin(username, password);
-    
-    if (authenticatedUser) {
-        $set({
-            loading: false,
-            user: authenticatedUser,
-        });
-    }
-};
-
-const Application = () => (
-    <ViewModel initialState={{ user: null, loading: false }}
-        protectedKeys="user"
-        controller={{
-            handlers: {
-                setUser: login,
-            },
-        }}>
-        <Bind props={['loading', ["user", true]]}>
-            { ({ loading, user, setUser }) => {
-                if (user) {
-                    return <AfterLogin user={user} />
-                }
-                else if (loading) {
-                    return <LoadingScreen />
-                }
-                else {
-                    return (
-                        <LoginForm onClick={
-                            ({ username, password }) => setUser({ username, password })
-                        } />
-                    );
-                }
-            }}
-        </Bind>
-    </ViewModel>
-);
-```
-
-See more in [ViewModel documentation](docs/ViewModel.md) and
-[ViewController documentation](docs/ViewController.md).
-
-## ViewController
-
-Using `ViewModel` might be sufficient for the majority of use cases in an application,
-but some pieces of business logic are too complex to fit into "read this", "set that"
-narrative. For these advanced use cases, `ViewController` offers a way to express the
-business logic that is both easy to read and is easy to test.
-
-Consider the login example above: `setUser` is an `async` function. It receives arguments,
-makes a call to the server to attempt authentication, waits for the results to come back,
-and then if the server call is successful, it finally sets the `user` value to that of
-the authenticated user. It is simple, straightforward, and is easy to read -- but only
-if we discount the `async` nature of the function.
-
-Consider also that in the login example, we are handling complex state transitions
-with loading indication. Here we have only two state keys to think of, and already
-this logic would be non-trivial to implement in vanilla React. If we add another step
-or two, like "read that key and load more data if it is incomplete", the code becomes
-way too complex to fit into one simple function.
-
-Not so in a `ViewController` handler, it is still easy to read:
-
-```javascript
-const loadSomething = async ({ $get, $set }) => {
-    const [data] = $get('data');
-    
-    if (isSomethingMissing(data)) {
-        await $set({ loading: true });
-        const missingPiece = await loadSomeMore(data);
-        
-        const result = await transformPieces(data, missingPiece);
-        
-        $set({
-            loading: false,
-            data: result,
-        });
-    }
+const actionHandler = async ({ data, state, set, dispatch }, ...args) => {
+  const result = await dispatch(someOtherHandler, ...args);
 };
 ```
 
-This way it is also easy to progressively load your data:
+## Why dispatching?
+
+Looking at the examples above, it might seem more natural to simply call the action handler functions directly instead of passing them to `dispatch`. While this is indeed possible, dispatching actions has numerous benefits that are either not easy or too tedious to implement manually every time:
+
+* Dispatched action handlers are deferred to the next event loop cycle instead of being called immediately, providing for better UI responsiveness;
+* Action handlers are automatically buffered: each time an action is dispatched, previous scheduled invocation is cancelled and replaced with the last one;
+* If the Store that schedules actions was unmounted before actions have had a chance to be invoked, all pending actions are cancelled;
+* When action handler function is called, it is guaranteed to receive the valid public API object of the Store that it was dispatched from, with stable identities of `data` and `state` objects;
+* If an action handler function dispatches other actions with the `dispatch` function it receives from the public API object, other actions are also managed the same way;
+* If the dispatching Store is unmounted while the asynchronous action handler code is being executed, trying to access the Store (read, set, or dispatch) will throw a `StoreUnmountedError` exception to interrupt the flow;
+* Finally, exceptions thrown while executing asynchronous action handler code are caught by the dispatching Store and are handled.
+
+## Error handling
+
+In Statium, errors in action code are first class citizens. Store action scheduler will catch exceptions and Promise rejections in asynchronous action handler functions and handle them in the following way:
+
+* Exceptions of type `StoreUnmountedError` that are thrown when trying to access already unmounted Store are suppressed: there is not much choice of what to do in that case;
+* Other exceptions cause Store render and are rethrown during rendering so that parent `ErrorBoundary` can catch and handle them;
+* Promise returned from `dispatch` is rejected to propagate flow interruption upstream.
+
+To make it easier for the action code to check for error type, `StoreUnmountedError` also provides `isStoreUnmounted` Boolean property to indicate this condition:
 
 ```javascript
-const loadUserPosts = async ({ $get, $set }) => {
-    let [user, posts, comments] = $get('user', 'posts', 'comments');
-    
-    if (!posts) {
-        await $set({ loading: true });
-        
-        posts = await loadPosts(user);
-        
-        await $set({ loading: false, posts });
+const action = async ({ state, set }) => {
+  await set({ foo: "bar" });
+
+  try {
+    const response = await fetchServerData();
+
+    await set({ data: response?.data });
+  }
+  catch (error) {
+    if (!error.isStoreUnmounted) {
+      await set({ error });
     }
-    
-    if (!comments) {
-        await $set({ loading: true });
-        
-        comments = await loadComments(user, posts);
-        
-        await $set({ loading: false, comments });
-    }
+  }
 };
 ```
 
-### ViewController events
+# RealWorld example
 
-Events are a way to invoke particular pieces of logic within a `ViewController`. Events
-are _dispatched_ by consumer Components or `ViewModels`, and _handled_ by `ViewControllers`.
-`ViewControllers` are chained parent to child like `ViewModels`, and are automatically
-bound to the nearest parent `ViewModel`, meaning that `ViewController` can read all
-store keys for the `ViewModel` it is bound to, and all its parent `ViewModels`.
-
-Similar to the `ViewModel` store keys, when an event is dispatched, the `ViewController`
-will climb up the parent chain and try to find the first handler for the given event name.
-When a handler is found, it is called with the arguments provided to `$dispatch` call,
-and climbing stops. No return value is expected. If no handler is found, an exception
-will be thrown.
-
-Event handler invocation is always deferred to the next event loop. If the same event
-was dispatched multiple times in the same event loop, the last invocation wins and
-previous ones are canceled.
-
-### ViewController lifecycle functions
-
-In addition to handling events, a `ViewController` can be used to manipulate `ViewModel`
-state via two lifecycle functions: `initialize` and `invalidate`. 
-
-`initialize` is called at the first rendering of the `ViewController` component, and can be
-used to perform extended initialization of the linked `ViewModel`, such as loading data
-from external source. Results of such action are asynchronous and not guaranteed, and so
-the best approach is to define the `ViewModel` with `initialState` that contains some
-reasonable defaults allowing partial rendering of the child components, while doing
-the loading and validating part in the `initialize` function of a `ViewController`.
-
-`invalidate` is called upon each subsequent rendering of the `ViewController` component
-(it is not called the first time). This function can be used to evaluate the `ViewModel`
-store, invalidate it if necessary, and/or dispatch events that cause some action.
-
-See more in [`ViewController` documentation](docs/ViewController.md).
-
-## Performance analysis
-
-### Child component rendering
-
-One of the particular areas of concern for React applications is avoiding unnecessary
-rendering of components not affected by state changes. Statium solves this problem by
-scoping `ViewModel` state changes: setting any state key will start at the `ViewModel`
-closest to the consumer Component, and climb up the `ViewModel` tree until the key
-owner is found. Once the owner is found, the state will be modified and the owner
-`ViewModel` and its children will be re-rendered in the usual way.
-
-For the majority of use cases where rendering is caused by user interaction and
-rendering performance is critical to maintain positive user experience, the consumer
-Components doing the state updates will be either directly contained by the `ViewModel`
-that holds their state, or be relatively close to it in the component tree. Since
-only the affected `ViewModel` is rendered, the scope of rendering is always controlled.
-
-### Read operations
-
-Statium is designed to take advantage of the JavaScript's main strengths: its prototypal
-object system. Each `ViewModel` store is linked to its parent via prototype chain to allow
-for extemely cheap value reads at the component rendering time. Essentially the only extra
-operations that are performed at value read time are binding normalization and formula
-lookup, both of which add negligible amount of runtime cost.
-
-### Write operations
-
-Setting a value to a state key is a slightly more expensive operation than getting a value,
-since it might involve climbing up the `ViewModel` tree to find the owner `ViewModel`
-on which to call `setState()`. This, however, does not lead to observable real world
-performance impact because of the inherently scoped nature of `ViewModel` store: most,
-if not all, of the keys read and written by consumer Components tend to be relatively
-close to the Components themselves in the component tree, i.e. contained in their parent
-`ViewModel`, or its parent.
+To give you an idea on how Statium can help with developing simple, easy to read, and testable React applications, take a look at the [React/Statium RealWorld demo](https://github.com/statiumjs/realworld-example).

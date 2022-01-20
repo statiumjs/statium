@@ -1,187 +1,175 @@
-import ReactDOM from 'react-dom';
-import loGet from 'lodash.get';
+import { unstable_batchedUpdates } from 'react-dom';
+import { isObject, defaultSet, rootStore, StoreUnmountedError, formatForError } from './context.js';
 
-import { validKey, getKeys, getKeyPrefix, findOwner } from './util';
-import { normalizeBindings, mapProps, mapPropsToArray } from './bindings';
+export const getKeys = o => [...Object.getOwnPropertySymbols(o), ...Object.getOwnPropertyNames(o)];
 
-export const accessorType = Symbol('accessorType');
+const findOwner = (object, entityName, key) => {
+  let depth = 0;
 
-const batch_updates = typeof ReactDOM.unstable_batchedUpdates === 'function'
-    ? ReactDOM.unstable_batchedUpdates
-    : fn => fn();
+  for (let owner = object; owner; owner = owner.parent) {
+    const entity = owner[entityName];
 
-const resolveValue = (vm, key) =>
-    vm.formulas[key] ? vm.formulas[key](vm.$get) : loGet(vm.store, key);
-
-const getStateKeyOwner = (vm, key) => {
-    const prefix = getKeyPrefix(key);
-    
-    const [owner, depth] = findOwner(vm, 'state', prefix);
-    
-    // If no owner was found, the key does not exist up the prototype chain.
-    // This means we can't set it.
-    if (owner === null) {
-        throw new Error(
-            `Cannot find owner ViewModel for key ${String(key)}. You need to provide ` +
-            `initial value for this key in "initialState" prop.`
-        );
+    if (isObject(entity) && entity.hasOwnProperty(key)) {
+      return [owner, depth];
     }
-    
-    return [owner, depth];
+
+    depth++;
+  }
+
+  return [null];
 };
 
-export const multiGet = (vm, keys) => {
-    let objectSyntax = false;
-    
-    if (keys.length === 1) {
-        // Trivial case when getter invoked with one string key name, thusly:
-        // const foo = $get('foo')
-        if (validKey(keys[0])) {
-            return vm.$resolveValue(keys[0]);
-        }
-        else if (typeof keys[0] === 'object') {
-            keys = keys[0];
-        
-            if (!Array.isArray(keys)) {
-                objectSyntax = true;
-            }
-        }
-    }
-    
-    const bindings = normalizeBindings(keys, true);
-    
-    return objectSyntax ? mapProps(vm, bindings) : mapPropsToArray(vm, bindings);
-};
+const getStateKeyOwner = (store, key) => {
+  const [owner, depth] = findOwner(store, 'state', key);
 
-export const multiSet = ({ vm, forceKey, single }, key, value) => {
-    // Trivial case for single key, used for bound key setters.
-    // `single` flag is to optimize away the `validKey()` call
-    // when we know for sure it's only one key and it's valid.
-    if (single || validKey(key)) {
-        const [owner] = getStateKeyOwner(vm, key);
-    
-        if (owner.protectedKeys && key in owner.protectedKeys && key !== forceKey) {
-            const event = owner.protectedKeys[key];
-            
-            return owner.$protectedDispatch(key, event, value);
-        }
-        else {
-            return owner.setState({ [key]: value });
-        }
-    }
-
-    let kv;
-    
-    if (key && typeof key === 'object' && !Array.isArray(key)) {
-        kv = key;
-    }
-    
-    if (!kv) {
-        throw new Error(`Invalid arguments: key "${JSON.stringify(key)}", `+
-                        `value: "${JSON.stringify(value)}"`);
-    }
-    
-    const ownerMap = new Map();
-    
-    for (const k of getKeys(kv)) {
-        const [owner, depth] = getStateKeyOwner(vm, k);
-        
-        let o = ownerMap.get(owner);
-        
-        if (o == null) {
-            o = {
-                owner,
-                depth,
-                values: {},
-                protectedValues: {},
-            };
-            
-            ownerMap.set(owner, o);
-        }
-        
-        if (owner.protectedKeys && k in owner.protectedKeys && k !== forceKey) {
-            o.protectedValues[k] = kv[k];
-        }
-        else {
-            o.values[k] = kv[k];
-        }
-    }
-    
-    const sortedQueue = [...ownerMap.values()].sort(
-        (a, b) => a.depth < b.depth ? 1 : -1
+  // If no owner was found, the key does not exist up the prototype chain.
+  // This means we can't set it.
+  if (!owner) {
+    throw new Error(
+      `Cannot find owner Store for key "${String(key)}". You need to provide an ` +
+      `initial value for this key in the "state" prop of the relevant Store.`
     );
-    
-    const promises = [];
-    
-    batch_updates(() => {
-        for (const item of sortedQueue) {
-            const { owner, values, protectedValues } = item;
-        
-            for (const protectedKey of getKeys(protectedValues)) {
-                const protectedValue = protectedValues[protectedKey];
-                const event = owner.protectedKeys[protectedKey];
-            
-                promises.push(owner.$protectedDispatch(protectedKey, event, protectedValue));
-            }
-        
-            promises.push(owner.setState(values));
-        }
-    });
-    
-    return Promise.all(promises);
+  }
+
+  return [owner, depth];
 };
 
-export const accessorizeViewModel = vm => {
-    vm.$resolveValue = key => resolveValue(vm, key);
-    vm.$resolveValue[accessorType] = 'resolve';
+const setter = ({ store, single }, kv, value) => {
+  // Trivial case for single key, used for bound key setters.
+  if (single) {
+    const [owner] = getStateKeyOwner(store, kv);
 
-    vm.$setSingleValue = (key, value) => multiSet({ vm, single: true }, key, value);
-    vm.$setSingleValue[accessorType] = 'set';
-    
-    vm.$get = (...args) => multiGet(vm, args);
-    vm.$get[accessorType] = 'get';
-    
-    vm.$set = (...args) => multiSet({ vm }, ...args);
-    vm.$set[accessorType] = 'set';
-    
-    vm.$protectedSet = (forceKey, ...args) => multiSet({ vm, forceKey }, ...args);
-    vm.$protectedSet[accessorType] = 'set';
-    
-    vm.$dispatch = vm.$dispatch || vm.parent.$dispatch;
-    vm.$protectedDispatch = vm.$protectedDispatch || vm.parent.$protectedDispatch;
-    
-    return vm;
-};
+    // We don't need to check if owner is defined, getStateKeyOwner will throw
+    // if owner is not found.
+    return owner.setState({ [kv]: value });
+  }
 
-export const validateInitialState = (state, vm) => {
-    if (state && typeof state === 'object' && !Array.isArray(state)) {
-        for (const key of getKeys(state)) {
-            if (key in vm.data) {
-                const [owner] = findOwner(vm, 'data', key);
+  if (!isObject(kv)) {
+    // This will do the same check and throw an error. Calling it here
+    // just to avoid duplicating the error message.
+    defaultSet(kv);
+  }
 
-                if (owner) {
-                    console.warn(`initialState for ViewModel "${vm.id}" ` +
-                                    `contains key "${String(key)}" that overrides ` +
-                                    `data key with similar name provided by ` +
-                                    `ViewModel "${owner.id}".`);
-                }
-            }
+  const ownerMap = new Map();
 
-            if (key in vm.parent.state) {
-                const [owner] = getStateKeyOwner(vm, key);
-                
-                if (owner) {
-                    console.warn(
-                        `initialState for ViewModel "${vm.id}" contains key "${String(key)}" ` +
-                        `that overrides another state key with similar name ` +
-                        `provided by parent ViewModel "${owner.id}".`
-                    );
-                }
-            }
-        }
-        
-        return true;
+  for (const k of getKeys(kv)) {
+    // We don't need to check if owner is defined, getStateKeyOwner will throw
+    // if owner is not found.
+    const [owner, depth] = getStateKeyOwner(store, k);
+
+    let o = ownerMap.get(owner);
+
+    if (o == null) {
+      o = { owner, depth, values: {}};
+      ownerMap.set(owner, o);
     }
-    
-    throw new Error(`Invalid initialState: ${JSON.stringify(state)}`);
+
+    o.values[k] = kv[k];
+  }
+
+  const sortedQueue = [...ownerMap.values()].sort((a, b) => a.depth < b.depth ? 1 : -1);
+  const promises = [];
+
+  // Despite being called unstable_batchedUpdates, use of this function
+  // has been recommended by React developers for cases like this:
+  // https://stackoverflow.com/a/48610973/458193
+  unstable_batchedUpdates(() => {
+    for (const item of sortedQueue) {
+      promises.push(item.owner.setState(item.values));
+    }
+  });
+
+  // Return value should be a reference to the public API on the store
+  // that the update was called on initially.
+  return Promise.all(promises).then(() => store.fullAPI);
+};
+
+const dispatcher = ({ store, action, payload }) => {
+  if (store.unmounted) {
+    throw new StoreUnmountedError(`Cannot dispatch actions on unmounted Store "${store.tag}"`);
+  }
+
+  let handler;
+
+  if (typeof action === 'function') {
+    handler = action;
+  }
+  else {
+    // Massage Redux style action dispatch. Payload can be an object only.
+    if (isObject(action) && ('type' in action) && payload.length === 0) {
+      const { type, ...eventPayload } = action;
+      action = type;
+      payload = [eventPayload];
+    }
+
+    const [owner] = findOwner(store, 'actions', action);
+
+    // If owner is not defined, we need to treat that as an error. Which is
+    // exactly what happens in rootStore.dispatch() below if handler is not defined.
+    handler = owner && owner.actions[action];
+  }
+
+  if (typeof handler === 'function') {
+    return store.defer(handler, store, ...payload);
+  }
+
+  return rootStore.dispatch(action, ...payload);
+};
+
+export const accessorizeStore = store => {
+  store.getSingleKeySetter = key => value => setter({ store, single: true }, key, value);
+  store.set = (...args) => setter({ store }, ...args);
+  store.dispatch = (action, ...payload) => dispatcher({ store, action, payload });
+
+  return store;
+};
+
+export const validateInitialState = (state, store) => {
+  if (isObject(state)) {
+    for (const key of getKeys(state)) {
+      if (key in store.parent.state) {
+        const [owner] = getStateKeyOwner(store, key);
+
+        // This is not an error but a warning is warranted
+        console.warn(
+          `Initial state for Store "${store.tag}" contains a key named ` +
+          `"${String(key)}" that overrides a state key with the same name ` +
+          `provided by parent Store "${owner.tag}".`
+        );
+      }
+    }
+
+    return true;
+  }
+
+  throw new Error(`Invalid initial state for Store "${store.tag}": ${formatForError(state)}`);
+};
+
+export const validateStateChange = (state, values, change, tag) => {
+  if (isObject(change)) {
+    const invalidKeys = [];
+
+    for (const key of getKeys(change)) {
+      if (!(key in state)) {
+        invalidKeys.push(key);
+      }
+    }
+
+    if (invalidKeys.length !== 0) {
+      const keys = invalidKeys.map(k => `"${String(k)}"`).join(", ");
+
+      throw new TypeError(
+        `State change received from controlStateChange function for Store "${tag}" ` +
+        `includes invalid state keys ${keys} not present in the initial state. ` +
+        `controlStateChange() cannot add new state keys.`
+      );
+    }
+
+    return { ...values, ...change };
+  }
+
+  throw new TypeError(
+    `controlStateChange function for Store "${tag}" returned invalid value: ` +
+    `${formatForError(change)}, expected an object with new state values.`
+  );
 };

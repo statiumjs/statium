@@ -1,7 +1,20 @@
-export { ViewModelUnmountedError } from './context.js';
-export { ViewModelWrapper as default } from './ViewModel.js';
-export { ViewController } from './ViewController.js';
-export { Bind } from './Bind.js';
-export { withBindings } from './withBindings.js';
-export { useBindings } from './useBindings.js';
-export { useController } from './useController.js';
+import { Store } from './Store.js';
+import { StoreUnmountedError } from './context.js';
+import { Bind } from './Bind.js';
+import { bind } from './bindHoc.js';
+import { useStore, useState } from './hooks.js';
+
+Store.StoreUnmountedError = StoreUnmountedError;
+Store.Bind = Bind;
+Store.bind = bind;
+Store.useStore = useStore;
+Store.useState = useState;
+
+export {
+  Store as default,
+  StoreUnmountedError,
+  Bind,
+  bind,
+  useStore,
+  useState,
+};

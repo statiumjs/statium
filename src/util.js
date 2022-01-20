@@ -1,105 +1,61 @@
-let idCounter = 0;
+import { StoreUnmountedError } from './context.js';
 
-export const ucfirst = str => String(str).replace(/^(.)/, c => c.toUpperCase());
+let tagCounter = 0;
 
-export const getId = prefix => `${prefix}-${++idCounter}`;
+export const getTag = prefix => `${prefix}-${++tagCounter}`;
 
-export const chain = (proto, ...sources) => Object.assign(Object.create(proto), ...sources);
-
-export const setterNameForKey = key => `set${ucfirst(key)}`;
-
-export const getKeys = object =>
-    [].concat(Object.getOwnPropertySymbols(object), Object.getOwnPropertyNames(object));
-    
-export const getKeyPrefix = key =>
-    typeof key === 'symbol' ? key : String(key).split('.').shift();
-
-export const validKey = key =>
-    (typeof key === 'string' && key !== '') || typeof key === 'symbol';
-
-export const findOwner = (object, entityName, key) => {
-    let depth = 0;
-    
-    for (let owner = object; owner; owner = owner.parent) {
-        const entity = owner[entityName];
-        
-        if (entity && typeof entity === 'object' && entity.hasOwnProperty(key)) {
-            return [owner, depth];
-        }
-        
-        depth++;
+const wrapProp = (def, propName, value, type, store) => {
+  def.get = () => {
+    if (store.unmounted) {
+      throw new StoreUnmountedError(
+        `Cannot read value for property "${propName}" from ${type} of unmounted Store "${store.tag}"`
+      );
     }
-    
-    return [null];
+  
+    return value;
+  };
+
+  def.set = () => {
+    throw new Error(`Cannot set property "${propName}" directly in state ` +
+                    `of Store "${store.tag}", use set() function instead.`);
+  };
+
+  // We need this to be able to clear properties from the chained object
+  def.configurable = true;
+  delete def.writable;
+  delete def.value;
+
+  return def;
 };
 
-const normalizeProtectedKey = entry => {
-    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
-        if (!('key' in entry)) {
-            throw new Error(`Invalid protected key entry: ${JSON.stringify(entry)}`);
-        }
-        
-        const { key, event } = entry;
-        
-        if (!validKey(key)) {
-            throw new Error(`Invalid protected key: ${JSON.stringify(key)}`);
-        }
-        
-        if (typeof key === 'symbol' && !validKey(event)) {
-            throw new Error(`Protected key ${String(key)} requires event name.`);
-        }
-        
-        if (!validKey(event)) {
-            throw new Error(`Invalid event name for protected key "${String(key)}": ${JSON.stringify(event)}`);
-        }
-        
-        return [key, event || setterNameForKey(key)];
-    }
-    else if (validKey(entry)) {
-        if (typeof entry === 'symbol') {
-            throw new Error(`Protected key ${String(entry)} requires event name.`);
-        }
-        
-        return [entry, setterNameForKey(entry)];
-    }
-    
-    throw new Error(`Invalid protected key: ${JSON.stringify(entry)}`);
+export const chain = (store, type, source) => {
+  const props = Object.getOwnPropertyDescriptors(source);
+  
+  for (const propName in props) {
+    props[propName] = wrapProp(props[propName], propName, source[propName], type, store);
+  }
+
+  return Object.create(store.parent[type], props);
 };
 
-export const normalizeProtectedKeys = keys => {
-    let validatedKeys;
-    
-    if (validKey(keys)) {
-        const [key, event] = normalizeProtectedKey(keys);
-        
-        validatedKeys = { [key]: event };
-    }
-    else if (keys && typeof keys === 'object') {
-        if (Array.isArray(keys)) {
-            validatedKeys = keys.reduce((acc, entry) => {
-                const [key, event] = normalizeProtectedKey(entry);
-                
-                acc[key] = event;
-                
-                return acc;
-            }, {});
-        }
-        else {
-            validatedKeys = {};
-            
-            for (const key of getKeys(keys)) {
-                const event = keys[key];
-                const [validatedKey, validatedEvent] = normalizeProtectedKey({ key, event });
-                
-                validatedKeys[validatedKey] = validatedEvent;
-            }
-        }
-    }
-    else {
-        throw new Error(`Invalid protected keys: ${JSON.stringify(keys)}`);
-    }
-    
-    return validatedKeys;
-};
+export const assign = (store, type, source, clear, replace) => {
+  const obj = store[type];
 
-export const defer = (fn, timeout = 0) => setTimeout(fn, timeout);
+  if (clear) {
+    for (const propName in Object.getOwnPropertyDescriptors(obj)) {
+      delete obj[propName];
+    }
+  }
+
+  let props = Object.getOwnPropertyDescriptors(source);
+
+  for (const propName in props) {
+    if (replace) {
+      delete obj[propName];
+    }
+
+    props[propName] = wrapProp(props[propName], propName, source[propName], type, store);
+  }
+
+  return Object.defineProperties(obj, props);
+};

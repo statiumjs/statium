@@ -1,86 +1,87 @@
 import React from 'react';
 
-export class ViewModelUnmountedError extends Error {
-    constructor(...args) {
-        super(...args);
+export const accessorType = Symbol.for('accessorType');
+export const isObject = o => o instanceof Object && o.constructor === Object;
+export const formatForError = v => typeof v === 'symbol' ? String(v) : JSON.stringify(v);
 
-        this.isViewModelUnmounted = true;
-    }
+export class StoreUnmountedError extends Error {
+  constructor(...args) {
+    super(...args);
+
+    this.isStoreUnmounted = true;
+  }
 }
 
-const error = msg => {
-    if (process.env.NODE_ENV === 'production') {
-        console.error(msg);
-    }
-    else {
-        throw new Error(msg);
-    }
+export const defaultSet = kv => {
+  if (!isObject(kv))
+    throw new TypeError(`Invalid arguments: key/value object "${formatForError(kv)}" `);
+
+  const keys = Object.keys(kv).map(k => `"${String(k)}"`).join(', ');
+
+  throw new Error(`No owner Store found to set keys: ${keys}.`);
 };
 
-const defaultGet = key => {
-    error(`Failed to retrieve a value for key "${key}", no ViewModel found`);
+const defaultDispatch = (action, ...payload) => {
+  throw new Error(`Cannot find handler for action "${action}". Arguments: ${formatForError(payload)}`);
 };
 
-const defaultSet = (key, value) => {
-    if (typeof key === 'object') {
-        const keys = Object.keys(key).map(k => `"${String(k)}"`).join(', ');
+const rootData = {};
+const rootState = new Proxy({}, {
+  get: (_, prop) => {
+    if (prop in Object.prototype) return Object.prototype[prop];
 
-        error(`Failed to set keys: ${keys}; no ViewModel found.`);
-    }
-    else {
-        error(`Failed to set key "${key}", no ViewModel found. Value: ${JSON.stringify(value)}`);
-    }
+    throw new Error(`Cannot find a Store that provides state key "${String(prop)}"`);
+  },
+});
+
+export const isRoot = obj => obj === rootData || obj === rootState;
+
+export const rootStore = {
+  $rootStore: true,
+  data: rootData,
+  state: rootState,
+  set: defaultSet,
+  dispatch: defaultDispatch,
 };
 
-const defaultDispatch = (event, ...payload) => {
-    error(`Cannot find handler for event "${event}". Event arguments: ${JSON.stringify(payload)}`);
-};
+rootStore.readonlyAPI = Object.freeze({
+  data: rootStore.data,
+  state: rootStore.state,
+});
 
-export const rootViewModel = {
-    formulas: {},
-    data: {},
-    state: {},
-    store: {},
-    $get: defaultGet,
-    $set: defaultSet,
-    $resolveValue: key => rootViewModel.$get(key),
-    $dispatch: defaultDispatch,
-};
+rootStore.fullAPI = Object.freeze({
+  data: rootStore.data,
+  state: rootStore.state,
+  set: rootStore.set,
+  dispatch: rootStore.dispatch,
+});
 
-export const rootViewController = {
-    vm: rootViewModel,
-    $get: rootViewModel.$retrieve,
-    $set: rootViewModel.$set,
-    $dispatch: defaultDispatch,
-};
-
-const _StatiumContext = Symbol('StatiumContext');
+const _StatiumContext = '$StatiumContext';
 
 // One often encountered problem is package being included more than once
 // in the application bundle, due to bundler misconfiguration or some other
 // reason. If that happens, each copy of the Statium package will have its own
-// pair of private ViewModel and ViewController contexts; this will lead to
-// _seriously_ hairy bugs that are really hard to track.
-// To avoid this issue, we simply cache context objects in the window.
+// copy of private Context; this will lead to _seriously_ hairy bugs
+// that are really hard to track.
+// To avoid this issue, we simply cache context object in the global object.
 export const Context = (() => {
-    let context;
-    
-    try {
-        if (window[_StatiumContext]) {
-            context = window[_StatiumContext];
-        }
-        else {
-            throw new Error('No context');
-        }
-    }
-    catch (e) {
-        context = React.createContext({
-            vm: rootViewModel,
-            vc: rootViewController,
-        });
+  let context;
 
-        window[_StatiumContext] = context;
+  try {
+    context = window[_StatiumContext];
+
+    // This is not easily testable.
+    /* istanbul ignore next */
+    if (!context) {
+      throw new Error();
     }
-    
-    return context;
+  }
+  catch (e) {
+    context = React.createContext({ store: rootStore });
+    context.displayName = 'StoreContext';
+
+    window[_StatiumContext] = context;
+  }
+
+  return context;
 })();
