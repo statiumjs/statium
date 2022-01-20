@@ -1,7 +1,7 @@
 import { configure } from 'enzyme';
 import Adapter from 'enzyme-adapter-react-16';
 import "regenerator-runtime/runtime";
-import { isEqual } from 'lodash';
+import isEqual from 'lodash.isequal';
 import { isRoot } from '../src/context.js';
 import { getKeys } from '../src/accessors.js';
 
