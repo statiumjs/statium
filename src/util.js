@@ -47,7 +47,7 @@ export const assign = (store, type, source, clear, replace) => {
     }
   }
 
-  let props = Object.getOwnPropertyDescriptors(source);
+  const props = Object.getOwnPropertyDescriptors(source);
 
   for (const propName in props) {
     if (replace) {

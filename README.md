@@ -558,9 +558,9 @@ In Statium, errors in action code are first class citizens. Store action schedul
 * Other exceptions cause Store render and are rethrown during rendering so that parent `ErrorBoundary` can catch and handle them;
 * Promise returned from `dispatch` is rejected to propagate flow interruption upstream.
 
-To make it easier for the action code to check for error type, `StoreUnmountedError` also provides `isStoreUnmounted` Boolean property to indicate this condition:
-
 ```javascript
+import { StoreUnmountedError } from 'statium';
+
 const action = async ({ state, set }) => {
   await set({ foo: "bar" });
 
@@ -570,7 +570,7 @@ const action = async ({ state, set }) => {
     await set({ data: response?.data });
   }
   catch (error) {
-    if (!error.isStoreUnmounted) {
+    if (!(error instanceof StoreUnmountedError)) {
       await set({ error });
     }
   }

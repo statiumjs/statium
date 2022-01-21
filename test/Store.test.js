@@ -425,7 +425,7 @@ describe("Store component", () => {
         );
 
         expect(() => {
-          tree.find('Store').instance().store.state.graffa;
+          tree.find('Store').instance().state.graffa;
         })
         .toThrow('Cannot find a Store that provides state key "graffa"');
       });
@@ -630,7 +630,7 @@ describe("Store component", () => {
             }}/>
         );
 
-        expect(tree.find('Store').instance().store.state.goffur).toBe('enokh');
+        expect(tree.find('Store').instance().state.goffur).toBe('enokh');
       });
 
       it("should call the reducer with correct arguments", async () => {

@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Context, StoreUnmountedError } from './context.js';
 import { getTag, chain, assign } from './util.js';
-import { validateInitialState, accessorizeStore, validateStateChange } from './accessors.js';
+import { validateInitialState, setter, dispatcher, validateStateChange } from './accessors.js';
 
 export const storeProp = Symbol('store');
 export const reactSetState = Symbol('setState');
@@ -11,25 +11,18 @@ export class Store extends React.Component {
   constructor(props, context) {
     super(props);
 
-    const tag = this.tag = 'tag' in props ? String(props.tag) : getTag('Store');
-    const parent = context.store;
-
-    // We need internal store object early on because chaining function closes over it.
-    // We also need to save it on the instance to pass as the value to Context.Provider
-    // later in render()
-    const internalStore = this[storeProp] = accessorizeStore({
-      // We need the tag to form meaningful error messages
-      tag,
-      parent,
+    const store = this[storeProp] = {
+      tag: this.tag = 'tag' in props ? String(props.tag) : getTag('Store'),
+      parent: context.store,
       actions: 'actions' in props ? props.actions : null,
-      tokens: new Map(),
-
       defer: this.defer.bind(this),
       setState: this.setStoreState.bind(this),
-    });
+      getSingleValueSetter: key => value => setter({ store, single: true }, key, value),
+      set: (...args) => setter({ store }, ...args),
+      dispatch: (action, ...payload) => dispatcher({ store, action, payload }),
+    };
 
-    internalStore.data = chain(internalStore, 'data', props.data);
-    internalStore.state = chain(internalStore, 'state', {});
+    store.data = chain(store, 'data', props.data);
 
     let { initialState } = props;
 
@@ -38,24 +31,23 @@ export class Store extends React.Component {
       // State initializer is supposed to be a pure function so we do not
       // provide a way to set state values or dispatch events.
       initialState = initialState({
-        data: internalStore.data,
-        state: internalStore.state,
+        data: store.data,
+        state: context.store.state,
       });
     }
 
     // TODO Change this to use options
-    validateInitialState(initialState, { tag, parent });
+    validateInitialState(initialState, store);
 
     // And finally we can populate the full state object
-    internalStore.state = chain(internalStore, 'state', initialState);
+    store.state = chain(store, 'state', initialState);
 
-    // We keep this.state object separate from internalStore.state because we need
-    // to maintain referential integrity for the public API: internalStore.state
-    // object is stable and we replace key/value pairs in it whenever this.state
-    // changes. We cannot make this the same object since React will replace this.state
-    // reference on every state change, which works fine for the component purposes
-    // but not for ours.
-    this.state = initialState;
+    // Read only API is just data and state; the same a with full API this is
+    // an optimization to minimize garbage collection load.
+    store.readonlyAPI = Object.freeze({
+      data: store.data,
+      state: store.state,
+    });
 
     // This object is for public consumption, it implements the full API
     // that we provide to Store consumers: data, state, set, & dispatch.
@@ -64,26 +56,16 @@ export class Store extends React.Component {
     // without having to recreate it every time.
     // We also expose the public store as well as set() and dispatch() on the
     // Store component instance, mostly for testing purposes.
-    this.store = internalStore.fullAPI = Object.freeze({
-      data: internalStore.data,
-      state: internalStore.state,
-      set: internalStore.set,
-      dispatch: internalStore.dispatch,
+    this.store = store.fullAPI = Object.freeze({
+      data: this.data = store.data,
+      state: this.state = store.state,
+      set: this.set = store.set,
+      dispatch: this.dispatch = store.dispatch,
     });
-
-    // Read only API is just data and state; the same a with full API this is
-    // an optimization to minimize garbage collection load.
-    internalStore.readonlyAPI = Object.freeze({
-      data: internalStore.data,
-      state: internalStore.state,
-    });
-
-    this.set = internalStore.set;
-    this.dispatch = internalStore.dispatch;
 
     // If someone accidentally calls instance.setState() on the Store
     // that would completely bork the state integrity. Replacing
-    // the prototype method with ours guarantees that this cannot happen.
+    // the prototype method with our own guarantees that this cannot happen.
     this[reactSetState] = this.setState;
 
     // TODO This will only handle shortcut setState() invocation,
@@ -91,7 +73,7 @@ export class Store extends React.Component {
     // check for other argument forms and, if not handle them,
     // to throw an exception because ideally setState() should not
     // be used on a Store. Or should it?
-    this.setState = internalStore.set;
+    this.setState = store.set;
 
     this.timerMap = new Map();
   }
@@ -161,7 +143,7 @@ export class Store extends React.Component {
   }
 
   execute(fn, store, args, resolve, reject) {
-    const ok = result => { resolve(result) };
+    const ok = result => resolve(result);
 
     const nok = error => {
       // This error is thrown when owner Store (or its parent) has been unmounted.
@@ -229,25 +211,26 @@ export class Store extends React.Component {
   render() {
     // If an error was thrown and caught in an action handler, we need to rethrow it
     // so that it would be caught by a parent ErrorBoundary.
-    if (this.error) throw this.error;
-
-    const internalStore = this[storeProp];
-    const { children } = this.props;
+    if (this.error) {
+      throw this.error;
+    }
 
     // Make sure data is always up to date. This cannot be reliably done elsewhere
     // since there are multiple scenarios where other lifecycle methods are skipped
     // and only render() is called. This operation is cheap so no need for conditionals.
-    assign(internalStore, 'data', this.props.data, true);
+    assign(this[storeProp], 'data', this.props.data, true);
 
-    if (typeof children === 'function' && !React.isValidElement(children)) {
+    if (typeof this.props.children === 'function' && !React.isValidElement(this.props.children)) {
       return React.createElement(
         Context.Provider,
-        { value: { store: internalStore } },
-        React.createElement(Context.Consumer, null, ({ store }) => children(store.fullAPI))
+        { value: { store: this[storeProp] } },
+        React.createElement(Context.Consumer, null, ({ store }) => this.props.children(store.fullAPI))
       );
     }
 
-    return React.createElement(Context.Provider, { value: { store: internalStore } }, children);
+    return React.createElement(
+      Context.Provider, { value: { store: this[storeProp] } }, this.props.children
+    );
   }
 }
 

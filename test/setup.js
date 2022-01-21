@@ -2,10 +2,15 @@ import { configure } from 'enzyme';
 import Adapter from 'enzyme-adapter-react-16';
 import "regenerator-runtime/runtime";
 import isEqual from 'lodash.isequal';
-import { isRoot } from '../src/context.js';
+import { rootStore } from '../src/context.js';
 import { getKeys } from '../src/accessors.js';
 
 configure({ adapter: new Adapter() });
+
+const rootData = rootStore.data;
+const rootState = rootStore.state;
+
+const isRoot = obj => obj === rootData || obj === rootState;
 
 // Lodash merge only copies string named properties, we need Symbol named props too
 globalThis.merge = (obj, source) => {

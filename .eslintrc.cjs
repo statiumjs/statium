@@ -51,6 +51,7 @@ module.exports = {
     'no-prototype-builtins': 'off',
     'no-unused-vars': ['error', { ignoreRestSiblings: true }],
     'react/prop-types': 'off',
+    'react/no-direct-mutation-state': 'off',
     'jest/no-test-callback': 'off',
     'jest/no-done-callback': 'off',
     'jest/no-conditional-expect': 'off',

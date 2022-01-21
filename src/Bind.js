@@ -1,5 +1,4 @@
 import React from 'react';
-
 import { Context } from './context.js';
 
 export const Bind = ({ children }) =>

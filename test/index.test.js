@@ -105,7 +105,7 @@ describe("exports", () => {
 
   it("should export StoreUnmountedError", () => {
     expect(typeof StoreUnmountedError).toBe('function');
-    expect((new StoreUnmountedError()).isStoreUnmounted).toBe(true);
+    expect(new StoreUnmountedError() instanceof StoreUnmountedError).toBe(true);
   });
 });
 
@@ -189,6 +189,6 @@ describe("sub-exports via Store class static properties", () => {
 
   it("should have Store.StoreUnmountedError for StoreUnmountedError", () => {
     expect(typeof Store.StoreUnmountedError).toBe('function');
-    expect((new Store.StoreUnmountedError()).isStoreUnmounted).toBe(true);
+    expect(new Store.StoreUnmountedError() instanceof StoreUnmountedError).toBe(true);
   });
 });
