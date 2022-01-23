@@ -3,6 +3,14 @@ import cleanup from 'rollup-plugin-cleanup';
 import { terser } from "rollup-plugin-terser";
 import pkg from './package.json';
 
+const terserConfig = {
+  mangle: {
+    reserved: [
+      'Store', 'StoreUnmountedError', 'Bind', 'bind', 'useStore', 'useState'
+    ],
+  },
+};
+
 export default [{
   input: 'src/index.js',
 
@@ -27,13 +35,13 @@ export default [{
           "@babel/preset-env",
         ],
       }),
-      terser(),
+      terser(terserConfig),
     ],
   }, {
     file: pkg.module,
     format: 'es',
     sourcemap: true,
-    plugins: [terser()],
+    plugins: [terser(terserConfig)],
   }, {
     file: pkg.module_unminified,
     format: 'es',
