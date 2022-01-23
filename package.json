@@ -1,6 +1,6 @@
 {
   "name": "statium",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Painless state management for React",
   "main": "dist/index.min.js",
   "type": "module",
