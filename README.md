@@ -8,7 +8,7 @@ Painless state management for React: pragmatic, non-opinionated, lightweight, bl
 
 ## Overview
 
-State is contained in a Store, which is a React component implementing a hierarchically chained key/value storage with a few additional features. Child Components make use of the state values by reading from the Store and calling the provided setter function to update state values. Calling the setter function with a value will update the owner Store and re-render and its children components.
+State is contained in a Store, which is a React component implementing a hierarchically composed key/value storage with some additional features. Child Components make use of the state values by reading from the Store and calling the provided setter function to update state values. Calling the setter function with a value will update the owner Store and re-render and its children components.
 
 ![Store hierarchy diagram](docs/hierarchy.png)
 
